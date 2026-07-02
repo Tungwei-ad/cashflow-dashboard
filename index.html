@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<title>東煒可動用現金監控表</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+  body { font-family: "Microsoft JhengHei", "Segoe UI", sans-serif; background: #f4f5f7; margin: 0; padding: 24px; color: #222; }
+  .container { max-width: 1000px; margin: 0 auto; }
+  h1 { font-size: 22px; margin-bottom: 4px; }
+  .subtitle { color: #777; margin-bottom: 20px; }
+  .card { background: #fff; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+  .card h2 { font-size: 16px; margin-top: 0; margin-bottom: 14px; color: #333; }
+  .balance-box { display: flex; align-items: baseline; gap: 10px; }
+  .balance-box .amount { font-size: 36px; font-weight: bold; color: #0a7d3c; }
+  .breakdown { color: #888; font-size: 13px; margin-top: 6px; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  label { display: block; font-size: 13px; color: #555; margin-bottom: 4px; }
+  input[type=number], input[type=date], input[type=text], input[type=password], select {
+    width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 14px;
+  }
+  button { background: #2563eb; color: #fff; border: none; border-radius: 4px; padding: 9px 18px; font-size: 14px; cursor: pointer; margin-top: 12px; }
+  button:hover { background: #1d4ed8; }
+  button.danger { background: #dc2626; padding: 4px 10px; font-size: 12px; margin-top: 0; }
+  button.danger:hover { background: #b91c1c; }
+  button.secondary { background: #6b7280; }
+  button.secondary:hover { background: #4b5563; }
+  button:disabled { background: #aaa; cursor: not-allowed; }
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid #eee; }
+  th { color: #666; font-weight: 600; font-size: 13px; }
+  .income { color: #0a7d3c; }
+  .expense { color: #c0392b; }
+  .empty { color: #999; font-size: 13px; padding: 10px 0; }
+  .form-row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+  .form-row > div { flex: 1; min-width: 120px; }
+  .stats-row { display: flex; gap: 20px; margin-bottom: 20px; flex-wrap: wrap; }
+  .stats-row .card { flex: 1; margin-bottom: 0; min-width: 220px; }
+  .amount.secondary { color: #1d4ed8; font-size: 32px; }
+  td.checkbox-col { text-align: center; }
+  .toolbar { display: flex; gap: 10px; align-items: center; }
+  .toolbar button { margin-top: 0; }
+  #login-screen { max-width: 360px; margin: 80px auto; }
+  #login-error { color: #c0392b; font-size: 13px; margin-top: 8px; display: none; }
+  #sync-status { font-size: 12px; color: #999; }
+</style>
+</head>
+<body>
+
+<div id="login-screen" class="card">
+  <h2>登入東煒可動用現金監控表</h2>
+  <form id="login-form">
+    <div style="margin-bottom: 12px;">
+      <label>Email</label>
+      <input type="text" id="login-email" required>
+    </div>
+    <div style="margin-bottom: 12px;">
+      <label>密碼</label>
+      <input type="password" id="login-password" required>
+    </div>
+    <button type="submit" id="login-btn">登入</button>
+    <div id="login-error"></div>
+  </form>
+</div>
+
+<div id="app" class="container" style="display:none;">
+  <div class="toolbar" style="justify-content: space-between;">
+    <h1>東煒可動用現金監控表</h1>
+    <div class="toolbar">
+      <span id="sync-status"></span>
+      <button type="button" class="secondary" id="btn-logout">登出</button>
+    </div>
+  </div>
+  <div class="subtitle">今天日期：<span id="today-label"></span></div>
+
+  <div class="stats-row">
+    <div class="card">
+      <h2>今日可動用現金</h2>
+      <div class="balance-box"><div class="amount" id="available-today">0</div></div>
+      <div class="breakdown">
+        = 帳上現金 <span id="breakdown-cash">0</span> + 銀行可動撥餘額 <span id="breakdown-credit">0</span>
+      </div>
+    </div>
+    <div class="card">
+      <h2>銀行可動撥餘額</h2>
+      <div class="balance-box"><div class="amount secondary" id="bank-available">0</div></div>
+      <div class="breakdown">僅計入下方已勾選「計入」的借款 <span id="bank-breakdown"></span></div>
+    </div>
+    <div class="card">
+      <h2>每月預估利息支出</h2>
+      <div class="balance-box"><div class="amount secondary" id="monthly-interest">0</div></div>
+      <div class="breakdown">= Σ（各筆已動撥金額 × 利率）/ 12（不受「計入」勾選影響）</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>更新帳上現金</h2>
+    <div class="grid">
+      <div>
+        <label>帳上現金</label>
+        <input type="text" inputmode="numeric" class="thousands-input" id="cash-input">
+      </div>
+    </div>
+    <button type="button" id="btn-save-cash">儲存</button>
+  </div>
+
+  <div class="card">
+    <h2>銀行借款</h2>
+    <table id="loan-table" style="display:none;">
+      <thead>
+        <tr><th>計入</th><th>銀行</th><th>額度名稱</th><th>性質</th><th>額度</th><th>已動撥</th><th>未動撥</th><th>利率 (%)</th><th></th></tr>
+      </thead>
+      <tbody id="loan-tbody"></tbody>
+    </table>
+    <div class="empty" id="loan-empty">目前沒有銀行借款資料。</div>
+
+    <h2 style="margin-top: 22px;">新增銀行借款</h2>
+    <form id="add-loan-form">
+      <div class="grid">
+        <div>
+          <label>銀行</label>
+          <input type="text" name="bank" placeholder="例如：台灣銀行">
+        </div>
+        <div>
+          <label>額度名稱</label>
+          <input type="text" name="credit_name" placeholder="例如：周轉金額度" required>
+        </div>
+        <div>
+          <label>性質</label>
+          <input type="text" name="nature" placeholder="例如：建融、土融、發票融資">
+        </div>
+        <div>
+          <label>額度</label>
+          <input type="text" inputmode="numeric" class="thousands-input" name="limit" required>
+        </div>
+        <div>
+          <label>已動撥金額</label>
+          <input type="text" inputmode="numeric" class="thousands-input" name="drawn" value="0" required>
+        </div>
+        <div>
+          <label>利率 (%)</label>
+          <input type="number" step="0.001" min="0" name="rate" value="0" required>
+        </div>
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <input type="checkbox" name="included" checked style="width: auto;">
+          <label style="margin-bottom: 0;">計入可動用現金</label>
+        </div>
+      </div>
+      <button type="submit">新增</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2>新增收支紀錄</h2>
+    <form id="add-tx-form">
+      <div class="form-row">
+        <div>
+          <label>日期</label>
+          <input type="date" name="date" required>
+        </div>
+        <div>
+          <label>類型</label>
+          <select name="type">
+            <option value="income">收入</option>
+            <option value="expense">費用</option>
+          </select>
+        </div>
+        <div>
+          <label>金額</label>
+          <input type="text" inputmode="numeric" class="thousands-input" name="amount" required>
+        </div>
+        <div style="flex: 2;">
+          <label>備註</label>
+          <input type="text" name="note" placeholder="例如：客戶A貨款、辦公室租金">
+        </div>
+        <div style="flex: 0;">
+          <button type="submit">新增</button>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2>預估現金水位（今日起，依日期排序）</h2>
+    <table id="forecast-table" style="display:none;">
+      <thead><tr><th>日期</th><th>項目</th><th>類型</th><th>金額</th><th>預估餘額</th><th></th></tr></thead>
+      <tbody id="forecast-tbody"></tbody>
+    </table>
+    <div class="empty" id="forecast-empty">目前沒有未來的收支紀錄。</div>
+  </div>
+
+  <div class="card">
+    <h2>歷史紀錄（今日以前）</h2>
+    <table id="past-table" style="display:none;">
+      <thead><tr><th>日期</th><th>項目</th><th>類型</th><th>金額</th><th></th></tr></thead>
+      <tbody id="past-tbody"></tbody>
+    </table>
+    <div class="empty" id="past-empty">目前沒有歷史紀錄。</div>
+  </div>
+
+</div>
+
+<script>
+  var SUPABASE_URL = 'https://cykdmfewgoacaynxhbfy.supabase.co';
+  var SUPABASE_ANON_KEY = 'sb_publishable_fJYq2vsSrEMEPB7uamEVMA_MIf2EnQh';
+  var sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  var data = { cash_on_hand: 0, bank_loans: [], transactions: [] };
+
+  function todayISO() {
+    var d = new Date();
+    var y = d.getFullYear();
+    var m = String(d.getMonth() + 1).padStart(2, '0');
+    var day = String(d.getDate()).padStart(2, '0');
+    return y + '-' + m + '-' + day;
+  }
+
+  function fmt(n) {
+    return Math.round(n || 0).toLocaleString('en-US');
+  }
+
+  function parseAmount(value) {
+    return parseFloat((value || '0').toString().replace(/,/g, '')) || 0;
+  }
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function formatThousands(digits) {
+    digits = digits.replace(/[^0-9]/g, '').replace(/^0+(?=\d)/, '');
+    return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  }
+
+  document.addEventListener('input', function (e) {
+    if (e.target.classList && e.target.classList.contains('thousands-input')) {
+      var raw = e.target.value.replace(/,/g, '');
+      e.target.value = formatThousands(raw);
+    }
+  });
+
+  function loanFromRow(row) {
+    return {
+      id: row.id, bank: row.bank, credit_name: row.credit_name, nature: row.nature,
+      limit: Number(row.limit_amount), drawn: Number(row.drawn), rate: Number(row.rate),
+      included: row.included
+    };
+  }
+
+  function txFromRow(row) {
+    return { id: row.id, date: row.date, type: row.type, amount: Number(row.amount), note: row.note };
+  }
+
+  // --- 資料讀取 ---
+  async function loadAll() {
+    setSyncStatus('讀取中...');
+    var cashRes = await sb.from('cash_settings').select('*').eq('id', 1).single();
+    var loansRes = await sb.from('bank_loans').select('*').order('id');
+    var txRes = await sb.from('transactions').select('*').order('id');
+
+    if (cashRes.error || loansRes.error || txRes.error) {
+      setSyncStatus('讀取失敗');
+      console.error(cashRes.error || loansRes.error || txRes.error);
+      return;
+    }
+
+    data.cash_on_hand = Number(cashRes.data.cash_on_hand);
+    data.bank_loans = loansRes.data.map(loanFromRow);
+    data.transactions = txRes.data.map(txFromRow);
+    setSyncStatus('已同步（' + new Date().toLocaleTimeString('zh-TW') + '）');
+    render();
+  }
+
+  function setSyncStatus(text) {
+    var el = document.getElementById('sync-status');
+    if (el) el.textContent = text;
+  }
+
+  // --- 統計計算 ---
+  function computeStats() {
+    var loans = data.bank_loans;
+    var included = loans.filter(function (l) { return l.included !== false; });
+    var total_limit = included.reduce(function (s, l) { return s + l.limit; }, 0);
+    var total_drawn = included.reduce(function (s, l) { return s + l.drawn; }, 0);
+    var total_available_credit = total_limit - total_drawn;
+    var available_today = data.cash_on_hand + total_available_credit;
+    var monthly_interest = loans.reduce(function (s, l) { return s + (l.drawn * l.rate / 100 / 12); }, 0);
+    return {
+      total_limit: total_limit, total_drawn: total_drawn,
+      total_available_credit: total_available_credit,
+      available_today: available_today, monthly_interest: monthly_interest
+    };
+  }
+
+  function renderLoanTable() {
+    var tbody = document.getElementById('loan-tbody');
+    var loans = data.bank_loans;
+    document.getElementById('loan-table').style.display = loans.length ? '' : 'none';
+    document.getElementById('loan-empty').style.display = loans.length ? 'none' : '';
+
+    tbody.innerHTML = loans.map(function (loan) {
+      return '<tr data-id="' + loan.id + '">' +
+        '<td class="checkbox-col"><input type="checkbox" class="loan-included"' + (loan.included !== false ? ' checked' : '') + '></td>' +
+        '<td><input type="text" class="loan-bank" value="' + esc(loan.bank) + '"></td>' +
+        '<td><input type="text" class="loan-credit-name" value="' + esc(loan.credit_name) + '"></td>' +
+        '<td><input type="text" class="loan-nature" value="' + esc(loan.nature) + '"></td>' +
+        '<td><input type="text" inputmode="numeric" class="thousands-input loan-limit" value="' + fmt(loan.limit) + '"></td>' +
+        '<td><input type="text" inputmode="numeric" class="thousands-input loan-drawn" value="' + fmt(loan.drawn) + '"></td>' +
+        '<td>' + fmt(loan.limit - loan.drawn) + '</td>' +
+        '<td><input type="number" step="0.001" class="loan-rate" value="' + loan.rate + '"></td>' +
+        '<td style="white-space: nowrap;">' +
+          '<button type="button" class="btn-update-loan">更新</button> ' +
+          '<button type="button" class="btn-delete-loan danger">刪除</button>' +
+        '</td>' +
+      '</tr>';
+    }).join('');
+  }
+
+  function renderForecast(today) {
+    var future = data.transactions
+      .filter(function (t) { return t.date >= today; })
+      .sort(function (a, b) { return a.date === b.date ? a.id - b.id : (a.date < b.date ? -1 : 1); });
+
+    var stats = computeStats();
+    var running = stats.available_today;
+    var rows = future.map(function (t) {
+      running += (t.type === 'income' ? t.amount : -t.amount);
+      return '<tr data-id="' + t.id + '">' +
+        '<td>' + esc(t.date) + '</td>' +
+        '<td>' + esc(t.note || '-') + '</td>' +
+        '<td class="' + t.type + '">' + (t.type === 'income' ? '收入' : '費用') + '</td>' +
+        '<td class="' + t.type + '">' + fmt(t.amount) + '</td>' +
+        '<td><strong>' + fmt(running) + '</strong></td>' +
+        '<td><button type="button" class="btn-delete-tx danger">刪除</button></td>' +
+      '</tr>';
+    });
+
+    document.getElementById('forecast-table').style.display = rows.length ? '' : 'none';
+    document.getElementById('forecast-empty').style.display = rows.length ? 'none' : '';
+    document.getElementById('forecast-tbody').innerHTML = rows.join('');
+  }
+
+  function renderPast(today) {
+    var past = data.transactions
+      .filter(function (t) { return t.date < today; })
+      .sort(function (a, b) { return a.date === b.date ? a.id - b.id : (a.date < b.date ? 1 : -1); });
+
+    var rows = past.map(function (t) {
+      return '<tr data-id="' + t.id + '">' +
+        '<td>' + esc(t.date) + '</td>' +
+        '<td>' + esc(t.note || '-') + '</td>' +
+        '<td class="' + t.type + '">' + (t.type === 'income' ? '收入' : '費用') + '</td>' +
+        '<td class="' + t.type + '">' + fmt(t.amount) + '</td>' +
+        '<td><button type="button" class="btn-delete-tx danger">刪除</button></td>' +
+      '</tr>';
+    });
+
+    document.getElementById('past-table').style.display = rows.length ? '' : 'none';
+    document.getElementById('past-empty').style.display = rows.length ? 'none' : '';
+    document.getElementById('past-tbody').innerHTML = rows.join('');
+  }
+
+  function render() {
+    var today = todayISO();
+    document.getElementById('today-label').textContent = today;
+
+    var stats = computeStats();
+    document.getElementById('available-today').textContent = fmt(stats.available_today);
+    document.getElementById('breakdown-cash').textContent = fmt(data.cash_on_hand);
+    document.getElementById('breakdown-credit').textContent = fmt(stats.total_available_credit);
+    document.getElementById('bank-available').textContent = fmt(stats.total_available_credit);
+    document.getElementById('bank-breakdown').textContent =
+      '（額度合計 ' + fmt(stats.total_limit) + ' － 已動撥合計 ' + fmt(stats.total_drawn) + '）';
+    document.getElementById('monthly-interest').textContent = fmt(stats.monthly_interest);
+
+    if (document.activeElement !== document.getElementById('cash-input')) {
+      document.getElementById('cash-input').value = fmt(data.cash_on_hand);
+    }
+
+    renderLoanTable();
+    renderForecast(today);
+    renderPast(today);
+  }
+
+  // --- 帳上現金 ---
+  document.getElementById('btn-save-cash').addEventListener('click', async function () {
+    var value = parseAmount(document.getElementById('cash-input').value);
+    setSyncStatus('儲存中...');
+    var { error } = await sb.from('cash_settings').update({ cash_on_hand: value, updated_at: new Date().toISOString() }).eq('id', 1);
+    if (error) { alert('儲存失敗：' + error.message); setSyncStatus('儲存失敗'); return; }
+    await loadAll();
+  });
+
+  // --- 銀行借款表格：勾選、更新、刪除（事件委派） ---
+  document.getElementById('loan-tbody').addEventListener('change', async function (e) {
+    if (e.target.classList.contains('loan-included')) {
+      var id = Number(e.target.closest('tr').dataset.id);
+      var checked = e.target.checked;
+      setSyncStatus('儲存中...');
+      var { error } = await sb.from('bank_loans').update({ included: checked }).eq('id', id);
+      if (error) { alert('更新失敗：' + error.message); }
+      await loadAll();
+    }
+  });
+
+  document.getElementById('loan-tbody').addEventListener('click', async function (e) {
+    var tr = e.target.closest('tr');
+    if (!tr) return;
+    var id = Number(tr.dataset.id);
+
+    if (e.target.classList.contains('btn-update-loan')) {
+      var payload = {
+        bank: tr.querySelector('.loan-bank').value.trim(),
+        credit_name: tr.querySelector('.loan-credit-name').value.trim(),
+        nature: tr.querySelector('.loan-nature').value.trim(),
+        limit_amount: parseAmount(tr.querySelector('.loan-limit').value),
+        drawn: parseAmount(tr.querySelector('.loan-drawn').value),
+        rate: parseFloat(tr.querySelector('.loan-rate').value) || 0,
+        updated_at: new Date().toISOString()
+      };
+      setSyncStatus('儲存中...');
+      var { error } = await sb.from('bank_loans').update(payload).eq('id', id);
+      if (error) { alert('更新失敗：' + error.message); setSyncStatus('儲存失敗'); return; }
+      await loadAll();
+    } else if (e.target.classList.contains('btn-delete-loan')) {
+      if (!confirm('確定要刪除這筆銀行借款嗎？')) return;
+      setSyncStatus('刪除中...');
+      var { error } = await sb.from('bank_loans').delete().eq('id', id);
+      if (error) { alert('刪除失敗：' + error.message); setSyncStatus('刪除失敗'); return; }
+      await loadAll();
+    }
+  });
+
+  // --- 新增銀行借款 ---
+  document.getElementById('add-loan-form').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    var form = e.target;
+    var payload = {
+      bank: form.bank.value.trim(),
+      credit_name: form.credit_name.value.trim() || '銀行借款',
+      nature: form.nature.value.trim(),
+      limit_amount: parseAmount(form.limit.value),
+      drawn: parseAmount(form.drawn.value),
+      rate: parseFloat(form.rate.value) || 0,
+      included: form.included.checked
+    };
+    setSyncStatus('新增中...');
+    var { error } = await sb.from('bank_loans').insert(payload);
+    if (error) { alert('新增失敗：' + error.message); setSyncStatus('新增失敗'); return; }
+    form.reset();
+    await loadAll();
+  });
+
+  // --- 新增/刪除收支紀錄 ---
+  document.getElementById('add-tx-form').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    var form = e.target;
+    var amount = parseAmount(form.amount.value);
+    if (amount > 0) {
+      var payload = {
+        date: form.date.value || todayISO(),
+        type: form.type.value,
+        amount: amount,
+        note: form.note.value.trim()
+      };
+      setSyncStatus('新增中...');
+      var { error } = await sb.from('transactions').insert(payload);
+      if (error) { alert('新增失敗：' + error.message); setSyncStatus('新增失敗'); return; }
+      form.reset();
+      form.date.value = todayISO();
+      await loadAll();
+    }
+  });
+
+  function bindDeleteTx(tbodyId) {
+    document.getElementById(tbodyId).addEventListener('click', async function (e) {
+      if (e.target.classList.contains('btn-delete-tx')) {
+        if (!confirm('確定要刪除這筆收支紀錄嗎？')) return;
+        var id = Number(e.target.closest('tr').dataset.id);
+        setSyncStatus('刪除中...');
+        var { error } = await sb.from('transactions').delete().eq('id', id);
+        if (error) { alert('刪除失敗：' + error.message); setSyncStatus('刪除失敗'); return; }
+        await loadAll();
+      }
+    });
+  }
+  bindDeleteTx('forecast-tbody');
+  bindDeleteTx('past-tbody');
+
+  // --- 即時同步：別人更新時自動重新整理資料 ---
+  var realtimeChannel = null;
+  function subscribeRealtime() {
+    if (realtimeChannel) return;
+    realtimeChannel = sb.channel('cashflow-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'cash_settings' }, loadAll)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bank_loans' }, loadAll)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, loadAll)
+      .subscribe();
+  }
+
+  // --- 登入 / 登出 ---
+  function showApp() {
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app').style.display = '';
+    document.querySelector('#add-tx-form [name=date]').value = todayISO();
+    subscribeRealtime();
+    loadAll();
+  }
+
+  function showLogin(message) {
+    document.getElementById('login-screen').style.display = '';
+    document.getElementById('app').style.display = 'none';
+    if (message) {
+      var err = document.getElementById('login-error');
+      err.textContent = message;
+      err.style.display = '';
+    }
+  }
+
+  document.getElementById('login-form').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    var btn = document.getElementById('login-btn');
+    btn.disabled = true;
+    var email = document.getElementById('login-email').value.trim();
+    var password = document.getElementById('login-password').value;
+    var { error } = await sb.auth.signInWithPassword({ email: email, password: password });
+    btn.disabled = false;
+    if (error) {
+      showLogin('登入失敗：帳號或密碼錯誤');
+      return;
+    }
+    document.getElementById('login-error').style.display = 'none';
+    showApp();
+  });
+
+  document.getElementById('btn-logout').addEventListener('click', async function () {
+    if (realtimeChannel) { sb.removeChannel(realtimeChannel); realtimeChannel = null; }
+    await sb.auth.signOut();
+    showLogin();
+  });
+
+  // --- 初始化：檢查是否已有登入狀態 ---
+  (async function init() {
+    var { data: sessionData } = await sb.auth.getSession();
+    if (sessionData && sessionData.session) {
+      showApp();
+    } else {
+      showLogin();
+    }
+  })();
+</script>
+</body>
+</html>
