@@ -94,6 +94,15 @@
   </div>
 
   <div class="card">
+    <h2>各專案額度動撥比例</h2>
+    <div style="display: flex; gap: 28px; align-items: center; flex-wrap: wrap;">
+      <svg id="loan-pie" width="240" height="240" viewBox="0 0 240 240" style="flex-shrink: 0;"></svg>
+      <div id="loan-pie-legend" style="flex: 1; min-width: 240px; font-size: 13px;"></div>
+    </div>
+    <div class="empty" id="loan-pie-empty" style="display:none;">目前沒有借款資料。</div>
+  </div>
+
+  <div class="card">
     <h2>更新帳上現金</h2>
     <div class="grid">
       <div>
@@ -108,7 +117,7 @@
     <h2>銀行借款</h2>
     <table id="loan-table" style="display:none;">
       <thead>
-        <tr><th>計入</th><th>銀行</th><th>額度名稱</th><th>性質</th><th>額度</th><th>已動撥</th><th>未動撥</th><th>利率 (%)</th><th></th></tr>
+        <tr><th>計入</th><th>銀行</th><th>專案名稱</th><th>性質</th><th>額度</th><th>已動撥</th><th>未動撥</th><th>利率 (%)</th><th></th></tr>
       </thead>
       <tbody id="loan-tbody"></tbody>
     </table>
@@ -122,8 +131,8 @@
           <input type="text" name="bank" placeholder="例如：台灣銀行">
         </div>
         <div>
-          <label>額度名稱</label>
-          <input type="text" name="credit_name" placeholder="例如：周轉金額度" required>
+          <label>專案名稱</label>
+          <input type="text" name="credit_name" placeholder="例如：內湖潭美案" required>
         </div>
         <div>
           <label>性質</label>
@@ -294,6 +303,82 @@
     };
   }
 
+  function groupLoansByProject() {
+    var groups = {};
+    var order = [];
+    data.bank_loans.forEach(function (loan) {
+      var key = loan.credit_name || '(未命名)';
+      if (!groups[key]) { groups[key] = { name: key, limit: 0, drawn: 0 }; order.push(key); }
+      groups[key].limit += loan.limit;
+      groups[key].drawn += loan.drawn;
+    });
+    return order.map(function (key) { return groups[key]; });
+  }
+
+  function polarToCartesian(cx, cy, r, angleDeg) {
+    var rad = (angleDeg - 90) * Math.PI / 180;
+    return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
+  }
+
+  function wedgePath(cx, cy, r, startAngle, endAngle) {
+    if (r <= 0.01) return '';
+    if (endAngle - startAngle >= 359.99) endAngle = startAngle + 359.99;
+    var start = polarToCartesian(cx, cy, r, endAngle);
+    var end = polarToCartesian(cx, cy, r, startAngle);
+    var largeArcFlag = (endAngle - startAngle) <= 180 ? '0' : '1';
+    return ['M', cx, cy, 'L', start.x, start.y, 'A', r, r, 0, largeArcFlag, 0, end.x, end.y, 'Z'].join(' ');
+  }
+
+  function renderLoanPie() {
+    var svg = document.getElementById('loan-pie');
+    var legend = document.getElementById('loan-pie-legend');
+    var groups = groupLoansByProject();
+    var totalLimit = groups.reduce(function (s, g) { return s + g.limit; }, 0);
+
+    document.getElementById('loan-pie-empty').style.display = groups.length && totalLimit > 0 ? 'none' : '';
+    svg.style.display = groups.length && totalLimit > 0 ? '' : 'none';
+    legend.style.display = groups.length && totalLimit > 0 ? '' : 'none';
+    if (!groups.length || totalLimit <= 0) { svg.innerHTML = ''; legend.innerHTML = ''; return; }
+
+    var cx = 120, cy = 120, r = 100;
+    var angle = 0;
+    var svgParts = [];
+    var legendParts = [];
+
+    groups.forEach(function (g, i) {
+      var hue = Math.round(i * 360 / groups.length);
+      var lightColor = 'hsl(' + hue + ',65%,88%)';
+      var darkColor = 'hsl(' + hue + ',65%,50%)';
+      var sweep = (g.limit / totalLimit) * 360;
+      var start = angle;
+      var end = angle + sweep;
+      angle = end;
+      var drawnRatio = g.limit > 0 ? Math.min(1, g.drawn / g.limit) : 0;
+
+      var bgPath = wedgePath(cx, cy, r, start, end);
+      var fillPath = wedgePath(cx, cy, r * drawnRatio, start, end);
+      var title = esc(g.name) + '\n額度 ' + fmt(g.limit) + '\n已動撥 ' + fmt(g.drawn) + '（' + (drawnRatio * 100).toFixed(1) + '%）';
+
+      if (bgPath) {
+        svgParts.push('<path d="' + bgPath + '" fill="' + lightColor + '" stroke="#fff" stroke-width="1"><title>' + title + '</title></path>');
+      }
+      if (fillPath) {
+        svgParts.push('<path d="' + fillPath + '" fill="' + darkColor + '"><title>' + title + '</title></path>');
+      }
+
+      legendParts.push(
+        '<div style="display:flex; align-items:center; gap:8px; padding:4px 0;">' +
+          '<span style="width:12px; height:12px; border-radius:2px; background:' + darkColor + '; flex-shrink:0;"></span>' +
+          '<span style="flex:1;">' + esc(g.name) + '</span>' +
+          '<span style="color:#888;">額度 ' + fmt(g.limit) + '　已動撥 ' + fmt(g.drawn) + '（' + (drawnRatio * 100).toFixed(1) + '%）</span>' +
+        '</div>'
+      );
+    });
+
+    svg.innerHTML = svgParts.join('');
+    legend.innerHTML = legendParts.join('');
+  }
+
   function renderLoanTable() {
     var tbody = document.getElementById('loan-tbody');
     var loans = data.bank_loans;
@@ -393,6 +478,7 @@
     }
 
     renderLoanTable();
+    renderLoanPie();
     renderForecast(today);
     renderPast(today);
   }
