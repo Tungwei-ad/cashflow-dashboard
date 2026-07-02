@@ -139,7 +139,7 @@
         </div>
         <div>
           <label>利率 (%)</label>
-          <input type="number" step="0.001" min="0" name="rate" value="0" required>
+          <input type="number" step="0.0001" min="0" name="rate" value="0" required>
         </div>
         <div style="display: flex; align-items: center; gap: 6px;">
           <input type="checkbox" name="included" checked style="width: auto;">
@@ -309,7 +309,7 @@
         '<td><input type="text" inputmode="numeric" class="thousands-input loan-limit" value="' + fmt(loan.limit) + '"></td>' +
         '<td><input type="text" inputmode="numeric" class="thousands-input loan-drawn" value="' + fmt(loan.drawn) + '"></td>' +
         '<td>' + fmt(loan.limit - loan.drawn) + '</td>' +
-        '<td><input type="number" step="0.001" class="loan-rate" value="' + loan.rate + '"></td>' +
+        '<td><input type="number" step="0.0001" class="loan-rate" value="' + loan.rate + '"></td>' +
         '<td style="white-space: nowrap;">' +
           '<button type="button" class="btn-update-loan">更新</button> ' +
           '<button type="button" class="btn-delete-loan danger">刪除</button>' +
