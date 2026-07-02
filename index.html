@@ -82,7 +82,7 @@
       </div>
     </div>
     <div class="card">
-      <h2>銀行可動撥餘額</h2>
+      <h2>銀行可動撥餘額(土融及不動產融資)</h2>
       <div class="balance-box"><div class="amount secondary" id="bank-available">0</div></div>
       <div class="breakdown">僅計入下方已勾選「計入」的借款 <span id="bank-breakdown"></span></div>
     </div>
@@ -94,7 +94,13 @@
   </div>
 
   <div class="card">
-    <h2>各專案額度動撥比例</h2>
+    <div class="toolbar" style="justify-content: space-between; margin-bottom: 4px;">
+      <h2 id="loan-pie-title" style="margin-bottom: 0;">各專案額度動撥比例</h2>
+      <div class="toolbar">
+        <button type="button" class="pie-group-btn" data-group="credit_name" id="btn-group-project">依專案</button>
+        <button type="button" class="pie-group-btn secondary" data-group="bank" id="btn-group-bank">依銀行別</button>
+      </div>
+    </div>
     <div style="display: flex; gap: 28px; align-items: center; flex-wrap: wrap;">
       <svg id="loan-pie" width="240" height="240" viewBox="0 0 240 240" style="flex-shrink: 0;"></svg>
       <div id="loan-pie-legend" style="flex: 1; min-width: 240px; font-size: 13px;"></div>
@@ -303,11 +309,14 @@
     };
   }
 
-  function groupLoansByProject() {
+  var pieGroupBy = 'credit_name';
+  var pieGroupLabels = { credit_name: '各專案額度動撥比例', bank: '各銀行別額度動撥比例' };
+
+  function groupLoansByField(field) {
     var groups = {};
     var order = [];
     data.bank_loans.forEach(function (loan) {
-      var key = loan.credit_name || '(未命名)';
+      var key = loan[field] || '(未命名)';
       if (!groups[key]) { groups[key] = { name: key, limit: 0, drawn: 0 }; order.push(key); }
       groups[key].limit += loan.limit;
       groups[key].drawn += loan.drawn;
@@ -332,7 +341,8 @@
   function renderLoanPie() {
     var svg = document.getElementById('loan-pie');
     var legend = document.getElementById('loan-pie-legend');
-    var groups = groupLoansByProject();
+    document.getElementById('loan-pie-title').textContent = pieGroupLabels[pieGroupBy];
+    var groups = groupLoansByField(pieGroupBy);
     var totalLimit = groups.reduce(function (s, g) { return s + g.limit; }, 0);
 
     document.getElementById('loan-pie-empty').style.display = groups.length && totalLimit > 0 ? 'none' : '';
@@ -378,6 +388,20 @@
     svg.innerHTML = svgParts.join('');
     legend.innerHTML = legendParts.join('');
   }
+
+  function updatePieGroupButtons() {
+    document.getElementById('btn-group-project').className = 'pie-group-btn' + (pieGroupBy === 'credit_name' ? '' : ' secondary');
+    document.getElementById('btn-group-bank').className = 'pie-group-btn' + (pieGroupBy === 'bank' ? '' : ' secondary');
+  }
+
+  document.querySelectorAll('.pie-group-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      pieGroupBy = btn.dataset.group;
+      updatePieGroupButtons();
+      renderLoanPie();
+    });
+  });
+  updatePieGroupButtons();
 
   function renderLoanTable() {
     var tbody = document.getElementById('loan-tbody');
