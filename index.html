@@ -128,6 +128,7 @@
       </div>
     </div>
     <button type="button" id="btn-save-cash">儲存</button>
+    <div class="breakdown" id="cash-updated-at" style="margin-top: 8px;"></div>
   </div>
 
   <div class="card">
@@ -231,7 +232,7 @@
   var SUPABASE_ANON_KEY = 'sb_publishable_fJYq2vsSrEMEPB7uamEVMA_MIf2EnQh';
   var sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-  var data = { cash_on_hand: 0, bank_loans: [], transactions: [] };
+  var data = { cash_on_hand: 0, cash_updated_at: null, bank_loans: [], transactions: [] };
   var knownNatures = new Set();
   var natureFilter = new Set();
 
@@ -295,6 +296,7 @@
     }
 
     data.cash_on_hand = Number(cashRes.data.cash_on_hand);
+    data.cash_updated_at = cashRes.data.updated_at;
     data.bank_loans = loansRes.data.map(loanFromRow);
     data.transactions = txRes.data.map(txFromRow);
 
@@ -555,6 +557,9 @@
     if (document.activeElement !== document.getElementById('cash-input')) {
       document.getElementById('cash-input').value = fmt(data.cash_on_hand);
     }
+    document.getElementById('cash-updated-at').textContent = data.cash_updated_at
+      ? '最後更新時間：' + new Date(data.cash_updated_at).toLocaleString('zh-TW')
+      : '';
 
     renderNatureFilter();
     renderLoanTable();
