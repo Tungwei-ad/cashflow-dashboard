@@ -43,6 +43,10 @@
   #login-screen { max-width: 360px; margin: 80px auto; }
   #login-error { color: #c0392b; font-size: 13px; margin-top: 8px; display: none; }
   #sync-status { font-size: 12px; color: #999; }
+  .pie-slice { cursor: pointer; transition: transform 0.15s ease, filter 0.15s ease; }
+  .pie-slice:hover { transform: translate(var(--dx, 0), var(--dy, 0)); filter: drop-shadow(0 4px 5px rgba(0,0,0,0.35)); }
+  #loan-pie-legend tr { transition: font-weight 0.1s ease; }
+  #loan-pie-legend tr.legend-row-hover td { font-weight: bold; }
 </style>
 </head>
 <body>
@@ -335,6 +339,7 @@
     if (e.target.classList.contains('nature-filter-checkbox')) {
       var nature = e.target.dataset.nature;
       if (e.target.checked) { natureFilter.add(nature); } else { natureFilter.delete(nature); }
+      pieSelectedIndex = null;
       render();
     }
   });
@@ -389,6 +394,8 @@
     return ['M', cx, cy, 'L', start.x, start.y, 'A', r, r, 0, largeArcFlag, 0, end.x, end.y, 'Z'].join(' ');
   }
 
+  var pieSelectedIndex = null;
+
   function renderLoanPie() {
     var svg = document.getElementById('loan-pie');
     var legend = document.getElementById('loan-pie-legend');
@@ -406,38 +413,47 @@
     legendTable.style.display = groups.length && totalLimit > 0 ? '' : 'none';
     if (!groups.length || totalLimit <= 0) { svg.innerHTML = ''; legend.innerHTML = ''; return; }
 
+    if (pieSelectedIndex !== null && pieSelectedIndex >= groups.length) { pieSelectedIndex = null; }
+
     var cx = 120, cy = 120, r = 100;
     var angle = 0;
     var svgParts = [];
     var legendParts = [];
 
     groups.forEach(function (g, i) {
+      var isDimmed = pieSelectedIndex !== null && pieSelectedIndex !== i;
       var hue = Math.round(i * 360 / groups.length);
-      var lightColor = 'hsl(' + hue + ',65%,88%)';
-      var darkColor = 'hsl(' + hue + ',65%,50%)';
+      var lightColor = isDimmed ? '#e5e7eb' : 'hsl(' + hue + ',65%,88%)';
+      var darkColor = isDimmed ? '#b0b4bb' : 'hsl(' + hue + ',65%,50%)';
       var sweep = (g.limit / totalLimit) * 360;
       var start = angle;
       var end = angle + sweep;
+      var mid = (start + end) / 2;
       angle = end;
       var drawnRatio = g.limit > 0 ? Math.min(1, g.drawn / g.limit) : 0;
+
+      var dir = polarToCartesian(0, 0, 8, mid);
 
       var bgPath = wedgePath(cx, cy, r, start, end);
       var fillPath = wedgePath(cx, cy, r * drawnRatio, start, end);
       var title = esc(g.name) + '\n額度 ' + fmt(g.limit) + '\n已動撥 ' + fmt(g.drawn) + '（' + (drawnRatio * 100).toFixed(1) + '%）';
 
-      if (bgPath) {
-        svgParts.push('<path d="' + bgPath + '" fill="' + lightColor + '" stroke="#fff" stroke-width="1"><title>' + title + '</title></path>');
-      }
-      if (fillPath) {
-        svgParts.push('<path d="' + fillPath + '" fill="' + darkColor + '"><title>' + title + '</title></path>');
-      }
+      var inner = '';
+      if (bgPath) { inner += '<path d="' + bgPath + '" fill="' + lightColor + '" stroke="#fff" stroke-width="1"></path>'; }
+      if (fillPath) { inner += '<path d="' + fillPath + '" fill="' + darkColor + '"></path>'; }
+
+      svgParts.push(
+        '<g class="pie-slice" data-index="' + i + '" style="--dx:' + dir.x.toFixed(2) + 'px; --dy:' + dir.y.toFixed(2) + 'px;">' +
+          '<title>' + title + '</title>' + inner +
+        '</g>'
+      );
 
       legendParts.push(
-        '<tr>' +
+        '<tr data-index="' + i + '" style="' + (isDimmed ? 'color:#aaa;' : '') + '">' +
           '<td style="padding:4px 6px 4px 0; white-space:nowrap;"><span style="display:inline-block; width:12px; height:12px; border-radius:2px; background:' + darkColor + ';"></span></td>' +
           '<td style="padding:4px 10px 4px 0; white-space:nowrap;">' + esc(g.name) + '</td>' +
-          '<td style="padding:4px 10px 4px 0; color:#888; white-space:nowrap;">額度 ' + fmt(g.limit) + '</td>' +
-          '<td style="padding:4px 0; color:#888; white-space:nowrap;">已動撥 ' + fmt(g.drawn) + '（' + (drawnRatio * 100).toFixed(1) + '%）</td>' +
+          '<td style="padding:4px 10px 4px 0; ' + (isDimmed ? '' : 'color:#888;') + ' white-space:nowrap;">額度 ' + fmt(g.limit) + '</td>' +
+          '<td style="padding:4px 0; ' + (isDimmed ? '' : 'color:#888;') + ' white-space:nowrap;">已動撥 ' + fmt(g.drawn) + '（' + (drawnRatio * 100).toFixed(1) + '%）</td>' +
         '</tr>'
       );
     });
@@ -445,6 +461,28 @@
     svg.innerHTML = svgParts.join('');
     legend.innerHTML = legendParts.join('');
   }
+
+  document.getElementById('loan-pie').addEventListener('click', function (e) {
+    var slice = e.target.closest('.pie-slice');
+    if (!slice) return;
+    var idx = Number(slice.dataset.index);
+    pieSelectedIndex = (pieSelectedIndex === idx) ? null : idx;
+    renderLoanPie();
+  });
+
+  document.getElementById('loan-pie').addEventListener('mouseover', function (e) {
+    var slice = e.target.closest('.pie-slice');
+    if (!slice) return;
+    var row = document.querySelector('#loan-pie-legend tr[data-index="' + slice.dataset.index + '"]');
+    if (row) row.classList.add('legend-row-hover');
+  });
+
+  document.getElementById('loan-pie').addEventListener('mouseout', function (e) {
+    var slice = e.target.closest('.pie-slice');
+    if (!slice) return;
+    var row = document.querySelector('#loan-pie-legend tr[data-index="' + slice.dataset.index + '"]');
+    if (row) row.classList.remove('legend-row-hover');
+  });
 
   function updatePieGroupButtons() {
     document.getElementById('btn-group-project').className = 'pie-group-btn' + (pieGroupBy === 'credit_name' ? '' : ' secondary');
@@ -454,6 +492,7 @@
   document.querySelectorAll('.pie-group-btn').forEach(function (btn) {
     btn.addEventListener('click', function () {
       pieGroupBy = btn.dataset.group;
+      pieSelectedIndex = null;
       updatePieGroupButtons();
       renderLoanPie();
     });
