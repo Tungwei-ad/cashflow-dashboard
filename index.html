@@ -73,11 +73,6 @@
   </div>
   <div class="subtitle">今天日期：<span id="today-label"></span></div>
 
-  <div class="card" id="nature-filter-card" style="display:none;">
-    <h2>依性質篩選（會套用到下方所有統計、圖表與表格）</h2>
-    <div id="nature-filter-list" style="display:flex; flex-wrap:wrap; gap:6px 18px;"></div>
-  </div>
-
   <div class="stats-row">
     <div class="card">
       <h2>今日可動用現金</h2>
@@ -100,15 +95,26 @@
 
   <div class="card">
     <div class="toolbar" style="justify-content: space-between; margin-bottom: 4px;">
-      <h2 id="loan-pie-title" style="margin-bottom: 0;">各專案額度動撥比例</h2>
+      <h2 style="margin-bottom: 0;">
+        <span id="loan-pie-title">各專案額度動撥比例</span>
+        <span id="loan-pie-summary" style="font-weight: normal; font-size: 13px; color: #888;"></span>
+      </h2>
       <div class="toolbar">
         <button type="button" class="pie-group-btn" data-group="credit_name" id="btn-group-project">依專案</button>
         <button type="button" class="pie-group-btn secondary" data-group="bank" id="btn-group-bank">依銀行別</button>
       </div>
     </div>
+
+    <div class="card" id="nature-filter-card" style="display:none; box-shadow:none; background:#f9fafb; padding:12px 16px; margin-bottom:14px;">
+      <div style="font-size:13px; color:#555; margin-bottom:6px;">依性質篩選（僅套用於此圖表）</div>
+      <div id="nature-filter-list" style="display:flex; flex-wrap:wrap; gap:6px 18px;"></div>
+    </div>
+
     <div style="display: flex; gap: 28px; align-items: center; flex-wrap: wrap;">
       <svg id="loan-pie" width="240" height="240" viewBox="0 0 240 240" style="flex-shrink: 0;"></svg>
-      <div id="loan-pie-legend" style="flex: 1; min-width: 240px; font-size: 13px;"></div>
+      <table id="loan-pie-legend-table" style="flex: 1; min-width: 260px; font-size: 13px; border-collapse: collapse;">
+        <tbody id="loan-pie-legend"></tbody>
+      </table>
     </div>
     <div class="empty" id="loan-pie-empty" style="display:none;">目前沒有借款資料。</div>
   </div>
@@ -338,7 +344,7 @@
 
   // --- 統計計算 ---
   function computeStats() {
-    var loans = getFilteredLoans();
+    var loans = data.bank_loans;
     var included = loans.filter(function (l) { return l.included !== false; });
     var total_limit = included.reduce(function (s, l) { return s + l.limit; }, 0);
     var total_drawn = included.reduce(function (s, l) { return s + l.drawn; }, 0);
@@ -384,13 +390,18 @@
   function renderLoanPie() {
     var svg = document.getElementById('loan-pie');
     var legend = document.getElementById('loan-pie-legend');
+    var legendTable = document.getElementById('loan-pie-legend-table');
     document.getElementById('loan-pie-title').textContent = pieGroupLabels[pieGroupBy];
     var groups = groupLoansByField(pieGroupBy);
     var totalLimit = groups.reduce(function (s, g) { return s + g.limit; }, 0);
+    var totalDrawn = groups.reduce(function (s, g) { return s + g.drawn; }, 0);
+
+    document.getElementById('loan-pie-summary').textContent =
+      groups.length ? '（篩選後：額度合計 ' + fmt(totalLimit) + '，已動撥合計 ' + fmt(totalDrawn) + '）' : '';
 
     document.getElementById('loan-pie-empty').style.display = groups.length && totalLimit > 0 ? 'none' : '';
     svg.style.display = groups.length && totalLimit > 0 ? '' : 'none';
-    legend.style.display = groups.length && totalLimit > 0 ? '' : 'none';
+    legendTable.style.display = groups.length && totalLimit > 0 ? '' : 'none';
     if (!groups.length || totalLimit <= 0) { svg.innerHTML = ''; legend.innerHTML = ''; return; }
 
     var cx = 120, cy = 120, r = 100;
@@ -420,11 +431,12 @@
       }
 
       legendParts.push(
-        '<div style="display:flex; align-items:center; gap:8px; padding:4px 0;">' +
-          '<span style="width:12px; height:12px; border-radius:2px; background:' + darkColor + '; flex-shrink:0;"></span>' +
-          '<span style="flex:1;">' + esc(g.name) + '</span>' +
-          '<span style="color:#888;">額度 ' + fmt(g.limit) + '　已動撥 ' + fmt(g.drawn) + '（' + (drawnRatio * 100).toFixed(1) + '%）</span>' +
-        '</div>'
+        '<tr>' +
+          '<td style="padding:4px 6px 4px 0; white-space:nowrap;"><span style="display:inline-block; width:12px; height:12px; border-radius:2px; background:' + darkColor + ';"></span></td>' +
+          '<td style="padding:4px 10px 4px 0; white-space:nowrap;">' + esc(g.name) + '</td>' +
+          '<td style="padding:4px 10px 4px 0; color:#888; white-space:nowrap;">額度 ' + fmt(g.limit) + '</td>' +
+          '<td style="padding:4px 0; color:#888; white-space:nowrap;">已動撥 ' + fmt(g.drawn) + '（' + (drawnRatio * 100).toFixed(1) + '%）</td>' +
+        '</tr>'
       );
     });
 
@@ -448,7 +460,7 @@
 
   function renderLoanTable() {
     var tbody = document.getElementById('loan-tbody');
-    var loans = getFilteredLoans();
+    var loans = data.bank_loans;
     document.getElementById('loan-table').style.display = loans.length ? '' : 'none';
     document.getElementById('loan-empty').style.display = loans.length ? 'none' : '';
 
