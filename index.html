@@ -316,6 +316,19 @@
         '</td>' +
       '</tr>';
     }).join('');
+
+    if (loans.length) {
+      var total_limit_all = loans.reduce(function (s, l) { return s + l.limit; }, 0);
+      var total_drawn_all = loans.reduce(function (s, l) { return s + l.drawn; }, 0);
+      var total_available_all = total_limit_all - total_drawn_all;
+      tbody.innerHTML += '<tr style="font-weight: bold; background: #f9fafb;">' +
+        '<td colspan="4" style="text-align: right;">小計</td>' +
+        '<td>' + fmt(total_limit_all) + '</td>' +
+        '<td>' + fmt(total_drawn_all) + '</td>' +
+        '<td>' + fmt(total_available_all) + '</td>' +
+        '<td></td><td></td>' +
+      '</tr>';
+    }
   }
 
   function renderForecast(today) {
