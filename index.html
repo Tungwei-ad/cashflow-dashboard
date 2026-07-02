@@ -73,6 +73,11 @@
   </div>
   <div class="subtitle">今天日期：<span id="today-label"></span></div>
 
+  <div class="card" id="nature-filter-card" style="display:none;">
+    <h2>依性質篩選（會套用到下方所有統計、圖表與表格）</h2>
+    <div id="nature-filter-list" style="display:flex; flex-wrap:wrap; gap:6px 18px;"></div>
+  </div>
+
   <div class="stats-row">
     <div class="card">
       <h2>今日可動用現金</h2>
@@ -221,6 +226,8 @@
   var sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
   var data = { cash_on_hand: 0, bank_loans: [], transactions: [] };
+  var knownNatures = new Set();
+  var natureFilter = new Set();
 
   function todayISO() {
     var d = new Date();
@@ -284,9 +291,45 @@
     data.cash_on_hand = Number(cashRes.data.cash_on_hand);
     data.bank_loans = loansRes.data.map(loanFromRow);
     data.transactions = txRes.data.map(txFromRow);
+
+    data.bank_loans.forEach(function (loan) {
+      var nature = loan.nature || '(未分類)';
+      if (!knownNatures.has(nature)) {
+        knownNatures.add(nature);
+        natureFilter.add(nature);
+      }
+    });
+
     setSyncStatus('已同步（' + new Date().toLocaleTimeString('zh-TW') + '）');
     render();
   }
+
+  function getFilteredLoans() {
+    return data.bank_loans.filter(function (l) { return natureFilter.has(l.nature || '(未分類)'); });
+  }
+
+  function renderNatureFilter() {
+    var card = document.getElementById('nature-filter-card');
+    var list = document.getElementById('nature-filter-list');
+    var natures = Array.from(knownNatures).sort();
+
+    card.style.display = natures.length ? '' : 'none';
+    list.innerHTML = natures.map(function (n) {
+      return '<label style="display:flex; align-items:center; gap:6px; margin-bottom:0; font-size:14px; font-weight:normal;">' +
+        '<input type="checkbox" class="nature-filter-checkbox" data-nature="' + esc(n) + '" style="width:auto;"' +
+          (natureFilter.has(n) ? ' checked' : '') + '>' +
+        esc(n) +
+      '</label>';
+    }).join('');
+  }
+
+  document.getElementById('nature-filter-list').addEventListener('change', function (e) {
+    if (e.target.classList.contains('nature-filter-checkbox')) {
+      var nature = e.target.dataset.nature;
+      if (e.target.checked) { natureFilter.add(nature); } else { natureFilter.delete(nature); }
+      render();
+    }
+  });
 
   function setSyncStatus(text) {
     var el = document.getElementById('sync-status');
@@ -295,7 +338,7 @@
 
   // --- 統計計算 ---
   function computeStats() {
-    var loans = data.bank_loans;
+    var loans = getFilteredLoans();
     var included = loans.filter(function (l) { return l.included !== false; });
     var total_limit = included.reduce(function (s, l) { return s + l.limit; }, 0);
     var total_drawn = included.reduce(function (s, l) { return s + l.drawn; }, 0);
@@ -315,7 +358,7 @@
   function groupLoansByField(field) {
     var groups = {};
     var order = [];
-    data.bank_loans.forEach(function (loan) {
+    getFilteredLoans().forEach(function (loan) {
       var key = loan[field] || '(未命名)';
       if (!groups[key]) { groups[key] = { name: key, limit: 0, drawn: 0 }; order.push(key); }
       groups[key].limit += loan.limit;
@@ -405,7 +448,7 @@
 
   function renderLoanTable() {
     var tbody = document.getElementById('loan-tbody');
-    var loans = data.bank_loans;
+    var loans = getFilteredLoans();
     document.getElementById('loan-table').style.display = loans.length ? '' : 'none';
     document.getElementById('loan-empty').style.display = loans.length ? 'none' : '';
 
@@ -501,6 +544,7 @@
       document.getElementById('cash-input').value = fmt(data.cash_on_hand);
     }
 
+    renderNatureFilter();
     renderLoanTable();
     renderLoanPie();
     renderForecast(today);
