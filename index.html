@@ -724,11 +724,21 @@
   }
 
   // --- 登入 / 登出 ---
+  var autoRefreshTimer = null;
+  function startAutoRefresh() {
+    if (autoRefreshTimer) return;
+    autoRefreshTimer = setInterval(loadAll, 10 * 60 * 1000);
+  }
+  function stopAutoRefresh() {
+    if (autoRefreshTimer) { clearInterval(autoRefreshTimer); autoRefreshTimer = null; }
+  }
+
   function showApp() {
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('app').style.display = '';
     document.querySelector('#add-tx-form [name=date]').value = todayISO();
     subscribeRealtime();
+    startAutoRefresh();
     loadAll();
   }
 
@@ -760,6 +770,7 @@
 
   document.getElementById('btn-logout').addEventListener('click', async function () {
     if (realtimeChannel) { sb.removeChannel(realtimeChannel); realtimeChannel = null; }
+    stopAutoRefresh();
     await sb.auth.signOut();
     showLogin();
   });
