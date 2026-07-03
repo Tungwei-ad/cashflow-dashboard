@@ -82,13 +82,26 @@
       <h2>今日可動用現金</h2>
       <div class="balance-box"><div class="amount" id="available-today">0</div></div>
       <div class="breakdown">
-        = 帳上現金 <span id="breakdown-cash">0</span> + 銀行可動撥餘額 <span id="breakdown-credit">0</span>
+        = 銀行存款 <span id="breakdown-cash">0</span> － 信託戶現金 <span id="breakdown-trust">0</span> + 銀行可動撥餘額 <span id="breakdown-credit">0</span>
       </div>
+    </div>
+    <div class="card">
+      <h2>可動用銀行存款</h2>
+      <div class="balance-box"><div class="amount secondary" id="usable-bank-deposit">0</div></div>
+      <div class="breakdown">= 銀行存款 － 信託戶現金(不可動用)</div>
     </div>
     <div class="card">
       <h2>銀行可動撥餘額(土融及不動產融資)</h2>
       <div class="balance-box"><div class="amount secondary" id="bank-available">0</div></div>
       <div class="breakdown">僅計入下方已勾選「計入」的借款 <span id="bank-breakdown"></span></div>
+    </div>
+  </div>
+
+  <div class="stats-row">
+    <div class="card">
+      <h2>總借款餘額</h2>
+      <div class="balance-box"><div class="amount secondary" id="total-loan-balance">0</div></div>
+      <div class="breakdown">= Σ 各筆已動撥金額（不受「計入」勾選影響）</div>
     </div>
     <div class="card">
       <h2>每月預估利息支出</h2>
@@ -124,11 +137,15 @@
   </div>
 
   <div class="card">
-    <h2>更新帳上現金</h2>
+    <h2>更新銀行存款</h2>
     <div class="grid">
       <div>
-        <label>帳上現金</label>
+        <label>銀行存款</label>
         <input type="text" inputmode="numeric" class="thousands-input" id="cash-input">
+      </div>
+      <div>
+        <label>信託戶現金(不可動用)</label>
+        <input type="text" inputmode="numeric" class="thousands-input" id="trust-cash-input">
       </div>
     </div>
     <button type="button" id="btn-save-cash">儲存</button>
@@ -236,7 +253,7 @@
   var SUPABASE_ANON_KEY = 'sb_publishable_fJYq2vsSrEMEPB7uamEVMA_MIf2EnQh';
   var sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-  var data = { cash_on_hand: 0, cash_updated_at: null, bank_loans: [], transactions: [] };
+  var data = { cash_on_hand: 0, trust_cash: 0, cash_updated_at: null, bank_loans: [], transactions: [] };
   var knownNatures = new Set();
   var natureFilter = new Set();
 
@@ -300,6 +317,7 @@
     }
 
     data.cash_on_hand = Number(cashRes.data.cash_on_hand);
+    data.trust_cash = Number(cashRes.data.trust_cash);
     data.cash_updated_at = cashRes.data.updated_at;
     data.bank_loans = loansRes.data.map(loanFromRow);
     data.transactions = txRes.data.map(txFromRow);
@@ -356,12 +374,16 @@
     var total_limit = included.reduce(function (s, l) { return s + l.limit; }, 0);
     var total_drawn = included.reduce(function (s, l) { return s + l.drawn; }, 0);
     var total_available_credit = total_limit - total_drawn;
-    var available_today = data.cash_on_hand + total_available_credit;
+    var usable_bank_deposit = data.cash_on_hand - data.trust_cash;
+    var available_today = usable_bank_deposit + total_available_credit;
     var monthly_interest = loans.reduce(function (s, l) { return s + (l.drawn * l.rate / 100 / 12); }, 0);
+    var total_loan_balance = loans.reduce(function (s, l) { return s + l.drawn; }, 0);
     return {
       total_limit: total_limit, total_drawn: total_drawn,
       total_available_credit: total_available_credit,
-      available_today: available_today, monthly_interest: monthly_interest
+      usable_bank_deposit: usable_bank_deposit,
+      available_today: available_today, monthly_interest: monthly_interest,
+      total_loan_balance: total_loan_balance
     };
   }
 
@@ -587,14 +609,20 @@
     var stats = computeStats();
     document.getElementById('available-today').textContent = fmt(stats.available_today);
     document.getElementById('breakdown-cash').textContent = fmt(data.cash_on_hand);
+    document.getElementById('breakdown-trust').textContent = fmt(data.trust_cash);
     document.getElementById('breakdown-credit').textContent = fmt(stats.total_available_credit);
+    document.getElementById('usable-bank-deposit').textContent = fmt(stats.usable_bank_deposit);
     document.getElementById('bank-available').textContent = fmt(stats.total_available_credit);
     document.getElementById('bank-breakdown').textContent =
       '（額度合計 ' + fmt(stats.total_limit) + ' － 已動撥合計 ' + fmt(stats.total_drawn) + '）';
+    document.getElementById('total-loan-balance').textContent = fmt(stats.total_loan_balance);
     document.getElementById('monthly-interest').textContent = fmt(stats.monthly_interest);
 
     if (document.activeElement !== document.getElementById('cash-input')) {
       document.getElementById('cash-input').value = fmt(data.cash_on_hand);
+    }
+    if (document.activeElement !== document.getElementById('trust-cash-input')) {
+      document.getElementById('trust-cash-input').value = fmt(data.trust_cash);
     }
     document.getElementById('cash-updated-at').textContent = data.cash_updated_at
       ? '最後更新時間：' + new Date(data.cash_updated_at).toLocaleString('zh-TW')
@@ -607,11 +635,14 @@
     renderPast(today);
   }
 
-  // --- 帳上現金 ---
+  // --- 銀行存款 / 信託戶現金 ---
   document.getElementById('btn-save-cash').addEventListener('click', async function () {
-    var value = parseAmount(document.getElementById('cash-input').value);
+    var cashValue = parseAmount(document.getElementById('cash-input').value);
+    var trustValue = parseAmount(document.getElementById('trust-cash-input').value);
     setSyncStatus('儲存中...');
-    var { error } = await sb.from('cash_settings').update({ cash_on_hand: value, updated_at: new Date().toISOString() }).eq('id', 1);
+    var { error } = await sb.from('cash_settings')
+      .update({ cash_on_hand: cashValue, trust_cash: trustValue, updated_at: new Date().toISOString() })
+      .eq('id', 1);
     if (error) { alert('儲存失敗：' + error.message); setSyncStatus('儲存失敗'); return; }
     await loadAll();
   });
