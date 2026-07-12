@@ -47,6 +47,8 @@
   .pie-slice:hover { transform: translate(var(--dx, 0), var(--dy, 0)); filter: drop-shadow(0 4px 5px rgba(0,0,0,0.35)); }
   #loan-pie-legend tr { transition: font-weight 0.1s ease; }
   #loan-pie-legend tr.legend-row-hover td { font-weight: bold; }
+  .bar-segment { transition: transform 0.15s ease, filter 0.15s ease; cursor: pointer; }
+  .bar-segment:hover { transform: translateY(-4px); filter: brightness(1.08) drop-shadow(0 3px 4px rgba(0,0,0,0.25)); }
 </style>
 </head>
 <body>
@@ -107,6 +109,28 @@
       <h2>每月預估利息支出</h2>
       <div class="balance-box"><div class="amount secondary" id="monthly-interest">0</div></div>
       <div class="breakdown">= Σ（各筆已動撥金額 × 利率）/ 12（不受「計入」勾選影響）</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>可動用現金流組成 vs. 公司穩健現金水位</h2>
+    <div class="grid" style="margin-bottom: 10px;">
+      <div>
+        <label>每月固定費用</label>
+        <input type="text" inputmode="numeric" class="thousands-input" id="fixed-expense-input">
+      </div>
+    </div>
+    <button type="button" id="btn-save-fixed-expense">儲存</button>
+    <div class="breakdown" style="margin-top: 8px;">
+      公司穩健現金水位 = （每月固定費用 <span id="stable-fixed">0</span> + 每月預估利息 <span id="stable-interest">0</span>）× 1.1 = <strong id="stable-level" style="color:#0b0b0b;">0</strong>
+    </div>
+
+    <div style="display: flex; gap: 32px; align-items: flex-start; flex-wrap: wrap; margin-top: 16px;">
+      <svg id="cash-bar-chart" width="240" height="300" viewBox="0 0 240 300" style="flex-shrink: 0;"></svg>
+      <div style="flex: 1; min-width: 220px;">
+        <div id="cash-bar-legend" style="font-size: 13px;"></div>
+        <div id="cash-bar-status" style="margin-top: 14px; font-size: 14px; font-weight: 600;"></div>
+      </div>
     </div>
   </div>
 
@@ -253,7 +277,7 @@
   var SUPABASE_ANON_KEY = 'sb_publishable_fJYq2vsSrEMEPB7uamEVMA_MIf2EnQh';
   var sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-  var data = { cash_on_hand: 0, trust_cash: 0, cash_updated_at: null, bank_loans: [], transactions: [] };
+  var data = { cash_on_hand: 0, trust_cash: 0, monthly_fixed_expense: 0, cash_updated_at: null, bank_loans: [], transactions: [] };
   var knownNatures = new Set();
   var natureFilter = new Set();
 
@@ -318,6 +342,7 @@
 
     data.cash_on_hand = Number(cashRes.data.cash_on_hand);
     data.trust_cash = Number(cashRes.data.trust_cash);
+    data.monthly_fixed_expense = Number(cashRes.data.monthly_fixed_expense);
     data.cash_updated_at = cashRes.data.updated_at;
     data.bank_loans = loansRes.data.map(loanFromRow);
     data.transactions = txRes.data.map(txFromRow);
@@ -378,13 +403,126 @@
     var available_today = usable_bank_deposit + total_available_credit;
     var monthly_interest = loans.reduce(function (s, l) { return s + (l.drawn * l.rate / 100 / 12); }, 0);
     var total_loan_balance = loans.reduce(function (s, l) { return s + l.drawn; }, 0);
+    var stable_cash_level = (data.monthly_fixed_expense + monthly_interest) * 1.1;
     return {
       total_limit: total_limit, total_drawn: total_drawn,
       total_available_credit: total_available_credit,
       usable_bank_deposit: usable_bank_deposit,
       available_today: available_today, monthly_interest: monthly_interest,
-      total_loan_balance: total_loan_balance
+      total_loan_balance: total_loan_balance,
+      stable_cash_level: stable_cash_level
     };
+  }
+
+  function niceStep(maxVal, targetTicks) {
+    if (maxVal <= 0) return 1;
+    var rough = maxVal / targetTicks;
+    var mag = Math.pow(10, Math.floor(Math.log10(rough)));
+    var norm = rough / mag;
+    var step;
+    if (norm < 1.5) { step = 1; } else if (norm < 3) { step = 2; } else if (norm < 7) { step = 5; } else { step = 10; }
+    return step * mag;
+  }
+
+  function roundedTopRectPath(x, y, w, h, r) {
+    if (h <= 0) return '';
+    r = Math.min(r, w / 2, h);
+    return ['M', x, y + h, 'L', x, y + r, 'Q', x, y, x + r, y,
+      'L', x + w - r, y, 'Q', x + w, y, x + w, y + r,
+      'L', x + w, y + h, 'Z'].join(' ');
+  }
+
+  function renderCashBarChart() {
+    var svg = document.getElementById('cash-bar-chart');
+    var legend = document.getElementById('cash-bar-legend');
+    var statusEl = document.getElementById('cash-bar-status');
+    var stats = computeStats();
+
+    var seg1 = Math.max(0, stats.usable_bank_deposit);
+    var seg2 = Math.max(0, stats.total_available_credit);
+    var total = seg1 + seg2;
+    var stableLevel = Math.max(0, stats.stable_cash_level);
+
+    var domainMax = Math.max(total, stableLevel, 1) * 1.15;
+    var step = niceStep(domainMax, 5);
+    var axisMax = Math.ceil(domainMax / step) * step;
+
+    var plotLeft = 64, plotRight = 200, plotTop = 20, plotBottom = 260;
+    var plotH = plotBottom - plotTop;
+
+    function yScale(v) { return plotBottom - (v / axisMax) * plotH; }
+
+    var parts = [];
+
+    // gridlines + y-axis labels
+    for (var tick = 0; tick <= axisMax + 0.001; tick += step) {
+      var ty = yScale(tick);
+      parts.push('<line x1="' + plotLeft + '" y1="' + ty + '" x2="' + plotRight + '" y2="' + ty + '" stroke="#e1e0d9" stroke-width="1"></line>');
+      parts.push('<text x="' + (plotLeft - 8) + '" y="' + (ty + 4) + '" text-anchor="end" font-size="10" fill="#898781">' + fmt(tick) + '</text>');
+    }
+
+    // baseline
+    parts.push('<line x1="' + plotLeft + '" y1="' + plotBottom + '" x2="' + plotRight + '" y2="' + plotBottom + '" stroke="#c3c2b7" stroke-width="1"></line>');
+
+    // bar geometry
+    var barW = 24;
+    var barX = (plotLeft + plotRight) / 2 - barW / 2;
+    var gap = 2;
+    var y1top = yScale(seg1);
+    var y2top = yScale(seg1 + seg2);
+
+    var COLOR_1 = '#2a78d6';
+    var COLOR_2 = '#1baf7a';
+
+    if (seg1 > 0) {
+      parts.push('<g class="bar-segment" data-label="銀行存款(可動用)">' +
+        '<title>銀行存款(可動用)：' + fmt(seg1) + '</title>' +
+        '<rect x="' + barX + '" y="' + y1top + '" width="' + barW + '" height="' + (plotBottom - y1top) + '" fill="' + COLOR_1 + '"></rect>' +
+      '</g>');
+    }
+    if (seg2 > 0) {
+      var segTop = y2top;
+      var segBottom = y1top - (seg1 > 0 ? gap : 0);
+      var segH = Math.max(0, segBottom - segTop);
+      parts.push('<g class="bar-segment" data-label="銀行可動撥餘額">' +
+        '<title>銀行可動撥餘額：' + fmt(seg2) + '</title>' +
+        '<path d="' + roundedTopRectPath(barX, segTop, barW, segH, 4) + '" fill="' + COLOR_2 + '"></path>' +
+      '</g>');
+    }
+
+    // total value cap label
+    parts.push('<text x="' + (barX + barW / 2) + '" y="' + (y2top - 8) + '" text-anchor="middle" font-size="13" font-weight="600" fill="#0b0b0b">' + fmt(total) + '</text>');
+
+    // x-axis category label
+    parts.push('<text x="' + (barX + barW / 2) + '" y="' + (plotBottom + 18) + '" text-anchor="middle" font-size="11" fill="#52514e">今日</text>');
+
+    // threshold line
+    var pass = total >= stableLevel;
+    var thresholdColor = pass ? '#0ca30c' : '#d03b3b';
+    var thresholdY = yScale(stableLevel);
+    parts.push('<line x1="' + plotLeft + '" y1="' + thresholdY + '" x2="' + plotRight + '" y2="' + thresholdY + '" stroke="' + thresholdColor + '" stroke-width="2" stroke-dasharray="5,4"></line>');
+    parts.push('<text x="' + plotRight + '" y="' + (thresholdY - 6) + '" text-anchor="end" font-size="10" font-weight="600" fill="' + thresholdColor + '">穩健水位 ' + fmt(stableLevel) + '</text>');
+
+    svg.innerHTML = parts.join('');
+
+    legend.innerHTML =
+      '<div style="display:flex; align-items:center; gap:8px; padding:3px 0;">' +
+        '<span style="display:inline-block; width:12px; height:12px; border-radius:2px; background:' + COLOR_1 + ';"></span>' +
+        '<span style="flex:1;">銀行存款(可動用)</span><span style="color:#888;">' + fmt(seg1) + '</span>' +
+      '</div>' +
+      '<div style="display:flex; align-items:center; gap:8px; padding:3px 0;">' +
+        '<span style="display:inline-block; width:12px; height:12px; border-radius:2px; background:' + COLOR_2 + ';"></span>' +
+        '<span style="flex:1;">銀行可動撥餘額</span><span style="color:#888;">' + fmt(seg2) + '</span>' +
+      '</div>' +
+      '<div style="display:flex; align-items:center; gap:8px; padding:3px 0;">' +
+        '<span style="display:inline-block; width:12px; border-top:2px dashed ' + thresholdColor + ';"></span>' +
+        '<span style="flex:1;">公司穩健現金水位</span><span style="color:#888;">' + fmt(stableLevel) + '</span>' +
+      '</div>';
+
+    statusEl.style.color = pass ? '#006300' : '#d03b3b';
+    statusEl.textContent = pass
+      ? '✓ 今日可動用現金高於穩健水位（高出 ' + fmt(total - stableLevel) + '）'
+      : '⚠ 今日可動用現金低於穩健水位（差 ' + fmt(stableLevel - total) + '）';
   }
 
   var pieGroupBy = 'credit_name';
@@ -617,12 +755,18 @@
       '（額度合計 ' + fmt(stats.total_limit) + ' － 已動撥合計 ' + fmt(stats.total_drawn) + '）';
     document.getElementById('total-loan-balance').textContent = fmt(stats.total_loan_balance);
     document.getElementById('monthly-interest').textContent = fmt(stats.monthly_interest);
+    document.getElementById('stable-fixed').textContent = fmt(data.monthly_fixed_expense);
+    document.getElementById('stable-interest').textContent = fmt(stats.monthly_interest);
+    document.getElementById('stable-level').textContent = fmt(stats.stable_cash_level);
 
     if (document.activeElement !== document.getElementById('cash-input')) {
       document.getElementById('cash-input').value = fmt(data.cash_on_hand);
     }
     if (document.activeElement !== document.getElementById('trust-cash-input')) {
       document.getElementById('trust-cash-input').value = fmt(data.trust_cash);
+    }
+    if (document.activeElement !== document.getElementById('fixed-expense-input')) {
+      document.getElementById('fixed-expense-input').value = fmt(data.monthly_fixed_expense);
     }
     document.getElementById('cash-updated-at').textContent = data.cash_updated_at
       ? '最後更新時間：' + new Date(data.cash_updated_at).toLocaleString('zh-TW')
@@ -631,6 +775,7 @@
     renderNatureFilter();
     renderLoanTable();
     renderLoanPie();
+    renderCashBarChart();
     renderForecast(today);
     renderPast(today);
   }
@@ -642,6 +787,17 @@
     setSyncStatus('儲存中...');
     var { error } = await sb.from('cash_settings')
       .update({ cash_on_hand: cashValue, trust_cash: trustValue, updated_at: new Date().toISOString() })
+      .eq('id', 1);
+    if (error) { alert('儲存失敗：' + error.message); setSyncStatus('儲存失敗'); return; }
+    await loadAll();
+  });
+
+  // --- 每月固定費用（穩健現金水位設定） ---
+  document.getElementById('btn-save-fixed-expense').addEventListener('click', async function () {
+    var value = parseAmount(document.getElementById('fixed-expense-input').value);
+    setSyncStatus('儲存中...');
+    var { error } = await sb.from('cash_settings')
+      .update({ monthly_fixed_expense: value, updated_at: new Date().toISOString() })
       .eq('id', 1);
     if (error) { alert('儲存失敗：' + error.message); setSyncStatus('儲存失敗'); return; }
     await loadAll();
