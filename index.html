@@ -125,9 +125,9 @@
       公司穩健現金水位 = （每月固定費用 <span id="stable-fixed">0</span> + 每月預估利息 <span id="stable-interest">0</span>）× 1.1 = <strong id="stable-level" style="color:#0b0b0b;">0</strong>
     </div>
 
-    <div style="display: flex; gap: 32px; align-items: flex-start; flex-wrap: wrap; margin-top: 16px;">
-      <svg id="cash-bar-chart" width="240" height="300" viewBox="0 0 240 300" style="flex-shrink: 0;"></svg>
-      <div style="flex: 1; min-width: 220px;">
+    <div style="display: flex; gap: 32px; align-items: center; justify-content: center; flex-wrap: wrap; margin-top: 16px;">
+      <svg id="cash-bar-chart" width="300" height="300" viewBox="0 0 300 300" style="flex-shrink: 0;"></svg>
+      <div style="min-width: 220px; max-width: 280px;">
         <div id="cash-bar-legend" style="font-size: 13px;"></div>
         <div id="cash-bar-status" style="margin-top: 14px; font-size: 14px; font-weight: 600;"></div>
       </div>
@@ -447,7 +447,7 @@
     var step = niceStep(domainMax, 5);
     var axisMax = Math.ceil(domainMax / step) * step;
 
-    var plotLeft = 64, plotRight = 200, plotTop = 20, plotBottom = 260;
+    var plotLeft = 104, plotRight = 240, plotTop = 20, plotBottom = 260;
     var plotH = plotBottom - plotTop;
 
     function yScale(v) { return plotBottom - (v / axisMax) * plotH; }
@@ -501,7 +501,7 @@
     var thresholdColor = pass ? '#0ca30c' : '#d03b3b';
     var thresholdY = yScale(stableLevel);
     parts.push('<line x1="' + plotLeft + '" y1="' + thresholdY + '" x2="' + plotRight + '" y2="' + thresholdY + '" stroke="' + thresholdColor + '" stroke-width="2" stroke-dasharray="5,4"></line>');
-    parts.push('<text x="' + plotRight + '" y="' + (thresholdY - 6) + '" text-anchor="end" font-size="10" font-weight="600" fill="' + thresholdColor + '">穩健水位 ' + fmt(stableLevel) + '</text>');
+    parts.push('<text x="' + (plotRight + 8) + '" y="' + (thresholdY + 4) + '" text-anchor="start" font-size="10" font-weight="600" fill="' + thresholdColor + '">穩健水位</text>');
 
     svg.innerHTML = parts.join('');
 
