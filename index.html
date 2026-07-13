@@ -122,7 +122,7 @@
     </div>
     <button type="button" id="btn-save-fixed-expense">儲存</button>
     <div class="breakdown" style="margin-top: 8px;">
-      公司穩健現金水位 = （每月固定費用 <span id="stable-fixed">0</span> + 每月預估利息 <span id="stable-interest">0</span>）× 1.1 = <strong id="stable-level" style="color:#0b0b0b;">0</strong>
+      公司穩健現金水位 = （每月固定費用 <span id="stable-fixed">0</span> + 每月預估利息 <span id="stable-interest">0</span>）× 6 × 1.1 = <strong id="stable-level" style="color:#0b0b0b;">0</strong>
     </div>
 
     <div style="display: flex; gap: 32px; align-items: center; justify-content: center; flex-wrap: wrap; margin-top: 16px;">
@@ -403,7 +403,7 @@
     var available_today = usable_bank_deposit + total_available_credit;
     var monthly_interest = loans.reduce(function (s, l) { return s + (l.drawn * l.rate / 100 / 12); }, 0);
     var total_loan_balance = loans.reduce(function (s, l) { return s + l.drawn; }, 0);
-    var stable_cash_level = (data.monthly_fixed_expense + monthly_interest) * 1.1;
+    var stable_cash_level = (data.monthly_fixed_expense + monthly_interest) * 6 * 1.1;
     return {
       total_limit: total_limit, total_drawn: total_drawn,
       total_available_credit: total_available_credit,
