@@ -45,6 +45,12 @@
   #loan-table .loan-limit, #loan-table .loan-drawn { min-width: 110px; }
   #loan-table .loan-rate { min-width: 70px; }
   #loan-table th, #loan-table td { white-space: nowrap; }
+  #loan-table .sticky-col { position: sticky; background: #fff; z-index: 2; }
+  #loan-table th.sticky-col { z-index: 3; }
+  #loan-table .sticky-1 { left: 0; width: 50px; }
+  #loan-table .sticky-2 { left: 50px; width: 100px; }
+  #loan-table .sticky-3 { left: 150px; width: 220px; }
+  #loan-table .sticky-4 { left: 370px; width: 110px; box-shadow: 2px 0 4px rgba(0,0,0,0.08); }
   .toolbar { display: flex; gap: 10px; align-items: center; }
   .toolbar button { margin-top: 0; }
   #login-screen { max-width: 360px; margin: 80px auto; }
@@ -209,7 +215,13 @@
     <div style="overflow-x: auto;">
       <table id="loan-table" style="display:none; width: auto; min-width: 1160px;">
         <thead>
-          <tr><th>計入</th><th>銀行</th><th>專案名稱</th><th>性質</th><th>資產性質</th><th>額度</th><th>已動撥</th><th>未動撥</th><th>利率 (%)</th><th></th></tr>
+          <tr>
+            <th class="sticky-col sticky-1">計入</th>
+            <th class="sticky-col sticky-2">銀行</th>
+            <th class="sticky-col sticky-3">專案名稱</th>
+            <th class="sticky-col sticky-4">性質</th>
+            <th>資產性質</th><th>額度</th><th>已動撥</th><th>未動撥</th><th>利率 (%)</th><th></th>
+          </tr>
         </thead>
         <tbody id="loan-tbody"></tbody>
       </table>
@@ -856,10 +868,10 @@
 
     tbody.innerHTML = loans.map(function (loan) {
       return '<tr data-id="' + loan.id + '">' +
-        '<td class="checkbox-col"><input type="checkbox" class="loan-included"' + (loan.included !== false ? ' checked' : '') + '></td>' +
-        '<td><input type="text" class="loan-bank" value="' + esc(loan.bank) + '"></td>' +
-        '<td><input type="text" class="loan-credit-name" value="' + esc(loan.credit_name) + '"></td>' +
-        '<td><input type="text" class="loan-nature" value="' + esc(loan.nature) + '"></td>' +
+        '<td class="checkbox-col sticky-col sticky-1"><input type="checkbox" class="loan-included"' + (loan.included !== false ? ' checked' : '') + '></td>' +
+        '<td class="sticky-col sticky-2"><input type="text" class="loan-bank" value="' + esc(loan.bank) + '"></td>' +
+        '<td class="sticky-col sticky-3"><input type="text" class="loan-credit-name" value="' + esc(loan.credit_name) + '"></td>' +
+        '<td class="sticky-col sticky-4"><input type="text" class="loan-nature" value="' + esc(loan.nature) + '"></td>' +
         '<td><select class="loan-asset-type">' +
           '<option value=""' + (!loan.asset_type ? ' selected' : '') + '>未分類</option>' +
           '<option value="出租型"' + (loan.asset_type === '出租型' ? ' selected' : '') + '>出租型</option>' +
@@ -881,7 +893,8 @@
       var total_drawn_all = loans.reduce(function (s, l) { return s + l.drawn; }, 0);
       var total_available_all = total_limit_all - total_drawn_all;
       tbody.innerHTML += '<tr style="font-weight: bold; background: #f9fafb;">' +
-        '<td colspan="5" style="text-align: right;">小計</td>' +
+        '<td colspan="4" class="sticky-col" style="left:0; text-align: right; background: #f9fafb;">小計</td>' +
+        '<td></td>' +
         '<td>' + fmt(total_limit_all) + '</td>' +
         '<td>' + fmt(total_drawn_all) + '</td>' +
         '<td>' + fmt(total_available_all) + '</td>' +
