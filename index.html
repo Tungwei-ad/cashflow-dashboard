@@ -142,8 +142,11 @@
       <div class="toolbar" id="scatter-bank-filter" style="flex-wrap: wrap;"></div>
     </div>
     <div style="display: flex; gap: 28px; align-items: flex-start; justify-content: center; flex-wrap: wrap; margin-top: 10px;">
-      <svg id="rate-scatter-chart" width="420" height="320" viewBox="0 0 420 320" style="flex-shrink: 0;"></svg>
-      <div id="rate-scatter-legend" style="font-size: 13px; min-width: 160px; padding-top: 20px;"></div>
+      <svg id="rate-scatter-chart" width="630" height="320" viewBox="0 0 630 320" style="flex-shrink: 0;"></svg>
+      <div style="min-width: 200px; max-width: 260px; padding-top: 20px;">
+        <div id="rate-scatter-legend" style="font-size: 13px;"></div>
+        <div id="rate-scatter-detail" style="font-size: 13px; margin-top: 14px; padding: 10px 12px; background: #f9fafb; border-radius: 6px; display: none;"></div>
+      </div>
     </div>
     <div class="empty" id="rate-scatter-empty" style="display:none;">目前沒有借款資料。</div>
   </div>
@@ -296,6 +299,7 @@
   var natureFilter = new Set();
   var knownBanks = new Set();
   var scatterBankFilter = '__all__';
+  var scatterSelectedLoanId = null;
   var CATEGORICAL_COLORS = ['#2a78d6', '#1baf7a', '#eda100', '#008300', '#4a3aa7', '#e34948', '#e87ba4', '#eb6834'];
   function bankColor(bankName) {
     var idx = Array.from(knownBanks).indexOf(bankName);
@@ -562,6 +566,15 @@
     var btn = e.target.closest('.bank-filter-btn');
     if (!btn) return;
     scatterBankFilter = btn.dataset.bank;
+    scatterSelectedLoanId = null;
+    renderRateScatter();
+  });
+
+  document.getElementById('rate-scatter-chart').addEventListener('click', function (e) {
+    var point = e.target.closest('.scatter-point');
+    if (!point) return;
+    var id = Number(point.dataset.loanId);
+    scatterSelectedLoanId = (scatterSelectedLoanId === id) ? null : id;
     renderRateScatter();
   });
 
@@ -570,6 +583,7 @@
 
     var svg = document.getElementById('rate-scatter-chart');
     var legend = document.getElementById('rate-scatter-legend');
+    var detail = document.getElementById('rate-scatter-detail');
 
     var loans = data.bank_loans.filter(function (l) {
       return scatterBankFilter === '__all__' || (l.bank || '(未填銀行)') === scatterBankFilter;
@@ -578,20 +592,25 @@
     document.getElementById('rate-scatter-empty').style.display = loans.length ? 'none' : '';
     svg.style.display = loans.length ? '' : 'none';
     legend.style.display = loans.length ? '' : 'none';
-    if (!loans.length) { svg.innerHTML = ''; legend.innerHTML = ''; return; }
+    if (!loans.length) { svg.innerHTML = ''; legend.innerHTML = ''; detail.style.display = 'none'; return; }
+
+    if (scatterSelectedLoanId !== null && !loans.some(function (l) { return l.id === scatterSelectedLoanId; })) {
+      scatterSelectedLoanId = null;
+    }
 
     var maxRate = Math.max.apply(null, loans.map(function (l) { return l.rate; }).concat([0.001]));
     var maxDrawn = Math.max.apply(null, loans.map(function (l) { return l.drawn; }).concat([1]));
 
-    var xDomainMax = maxRate * 1.15;
-    var xStep = niceStep(xDomainMax, 5);
+    // X 軸：已動撥；Y 軸：利率
+    var xDomainMax = maxDrawn * 1.15;
+    var xStep = niceStep(xDomainMax, 4);
     var xAxisMax = Math.ceil(xDomainMax / xStep) * xStep;
 
-    var yDomainMax = maxDrawn * 1.15;
+    var yDomainMax = maxRate * 1.15;
     var yStep = niceStep(yDomainMax, 5);
     var yAxisMax = Math.ceil(yDomainMax / yStep) * yStep;
 
-    var plotLeft = 110, plotRight = 400, plotTop = 20, plotBottom = 260;
+    var plotLeft = 110, plotRight = 560, plotTop = 20, plotBottom = 260;
     var plotW = plotRight - plotLeft, plotH = plotBottom - plotTop;
 
     function xScale(v) { return plotLeft + (v / xAxisMax) * plotW; }
@@ -599,34 +618,36 @@
 
     var parts = [];
 
-    for (var ty = 0; ty <= yAxisMax + 0.001; ty += yStep) {
+    var yTickDecimals = yStep < 1 ? 1 : 0;
+    for (var ty = 0; ty <= yAxisMax + 0.0001; ty += yStep) {
       var py = yScale(ty);
       parts.push('<line x1="' + plotLeft + '" y1="' + py + '" x2="' + plotRight + '" y2="' + py + '" stroke="#e1e0d9" stroke-width="1"></line>');
-      parts.push('<text x="' + (plotLeft - 8) + '" y="' + (py + 4) + '" text-anchor="end" font-size="10" fill="#898781">' + fmt(ty) + '</text>');
+      parts.push('<text x="' + (plotLeft - 8) + '" y="' + (py + 4) + '" text-anchor="end" font-size="10" fill="#898781">' + ty.toFixed(yTickDecimals) + '%</text>');
     }
 
-    var xTickDecimals = xStep < 1 ? 1 : 0;
-    for (var tx = 0; tx <= xAxisMax + 0.0001; tx += xStep) {
+    for (var tx = 0; tx <= xAxisMax + 0.001; tx += xStep) {
       var px = xScale(tx);
       parts.push('<line x1="' + px + '" y1="' + plotTop + '" x2="' + px + '" y2="' + plotBottom + '" stroke="#e1e0d9" stroke-width="1"></line>');
-      parts.push('<text x="' + px + '" y="' + (plotBottom + 18) + '" text-anchor="middle" font-size="10" fill="#898781">' + tx.toFixed(xTickDecimals) + '%</text>');
+      parts.push('<text x="' + px + '" y="' + (plotBottom + 18) + '" text-anchor="middle" font-size="10" fill="#898781">' + fmt(tx) + '</text>');
     }
 
     parts.push('<line x1="' + plotLeft + '" y1="' + plotBottom + '" x2="' + plotRight + '" y2="' + plotBottom + '" stroke="#c3c2b7" stroke-width="1"></line>');
     parts.push('<line x1="' + plotLeft + '" y1="' + plotTop + '" x2="' + plotLeft + '" y2="' + plotBottom + '" stroke="#c3c2b7" stroke-width="1"></line>');
 
-    parts.push('<text x="' + ((plotLeft + plotRight) / 2) + '" y="' + (plotBottom + 36) + '" text-anchor="middle" font-size="11" fill="#52514e">利率</text>');
-    parts.push('<text x="16" y="' + (plotTop + plotH / 2) + '" text-anchor="middle" font-size="11" fill="#52514e" transform="rotate(-90 16 ' + (plotTop + plotH / 2) + ')">已動撥</text>');
+    parts.push('<text x="' + ((plotLeft + plotRight) / 2) + '" y="' + (plotBottom + 36) + '" text-anchor="middle" font-size="11" fill="#52514e">已動撥</text>');
+    parts.push('<text x="16" y="' + (plotTop + plotH / 2) + '" text-anchor="middle" font-size="11" fill="#52514e" transform="rotate(-90 16 ' + (plotTop + plotH / 2) + ')">利率</text>');
 
     loans.forEach(function (loan) {
-      var cx = xScale(loan.rate);
-      var cy = yScale(loan.drawn);
+      var cx = xScale(loan.drawn);
+      var cy = yScale(loan.rate);
       var color = bankColor(loan.bank || '(未填銀行)');
+      var isSelected = loan.id === scatterSelectedLoanId;
       var title = esc(loan.bank || '(未填銀行)') + ' － ' + esc(loan.credit_name) +
         '\n性質：' + esc(loan.nature || '-') + '\n利率：' + loan.rate + '%\n已動撥：' + fmt(loan.drawn);
-      parts.push('<g class="scatter-point">' +
+      parts.push('<g class="scatter-point" data-loan-id="' + loan.id + '">' +
         '<title>' + title + '</title>' +
         '<circle cx="' + cx + '" cy="' + cy + '" r="12" fill="transparent"></circle>' +
+        (isSelected ? '<circle cx="' + cx + '" cy="' + cy + '" r="10" fill="none" stroke="' + color + '" stroke-width="2" opacity="0.45"></circle>' : '') +
         '<circle cx="' + cx + '" cy="' + cy + '" r="6" fill="' + color + '" stroke="#fcfcfb" stroke-width="2"></circle>' +
       '</g>');
     });
@@ -645,6 +666,22 @@
       legend.innerHTML = '<div style="color:#888;">目前顯示：' +
         (scatterBankFilter === '__all__' ? '全部銀行' : esc(scatterBankFilter)) +
         '（共 ' + loans.length + ' 筆）</div>';
+    }
+
+    if (scatterSelectedLoanId !== null) {
+      var sel = loans.find(function (l) { return l.id === scatterSelectedLoanId; });
+      detail.style.display = '';
+      detail.innerHTML =
+        '<div style="font-weight:600; margin-bottom:6px;">' + esc(sel.credit_name) + '</div>' +
+        '<div>銀行：' + esc(sel.bank || '-') + '</div>' +
+        '<div>性質：' + esc(sel.nature || '-') + '</div>' +
+        '<div>利率：' + sel.rate + '%</div>' +
+        '<div>額度：' + fmt(sel.limit) + '</div>' +
+        '<div>已動撥：' + fmt(sel.drawn) + '</div>' +
+        '<div>未動撥：' + fmt(sel.limit - sel.drawn) + '</div>';
+    } else {
+      detail.style.display = 'none';
+      detail.innerHTML = '';
     }
   }
 
