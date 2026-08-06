@@ -111,6 +111,10 @@
       <h2>每月預估利息支出</h2>
       <div class="balance-box"><div class="amount secondary" id="monthly-interest">0</div></div>
       <div class="breakdown">= Σ（各筆已動撥金額 × 利率）/ 12（不受「計入」勾選影響）</div>
+      <div class="breakdown" style="margin-top: 6px;">
+        出租型資產借款：<strong id="rental-monthly-interest" style="color:#0b0b0b;">0</strong>
+        　出售型資產借款：<strong id="sale-monthly-interest" style="color:#0b0b0b;">0</strong>
+      </div>
     </div>
   </div>
 
@@ -197,7 +201,7 @@
     <h2>銀行借款</h2>
     <table id="loan-table" style="display:none;">
       <thead>
-        <tr><th>計入</th><th>銀行</th><th>專案名稱</th><th>性質</th><th>額度</th><th>已動撥</th><th>未動撥</th><th>利率 (%)</th><th></th></tr>
+        <tr><th>計入</th><th>銀行</th><th>專案名稱</th><th>性質</th><th>資產性質</th><th>額度</th><th>已動撥</th><th>未動撥</th><th>利率 (%)</th><th></th></tr>
       </thead>
       <tbody id="loan-tbody"></tbody>
     </table>
@@ -217,6 +221,14 @@
         <div>
           <label>性質</label>
           <input type="text" name="nature" placeholder="例如：建融、土融、發票融資">
+        </div>
+        <div>
+          <label>資產性質</label>
+          <select name="asset_type">
+            <option value="">未分類</option>
+            <option value="出租型">出租型</option>
+            <option value="出售型">出售型</option>
+          </select>
         </div>
         <div>
           <label>額度</label>
@@ -345,7 +357,7 @@
     return {
       id: row.id, bank: row.bank, credit_name: row.credit_name, nature: row.nature,
       limit: Number(row.limit_amount), drawn: Number(row.drawn), rate: Number(row.rate),
-      included: row.included
+      included: row.included, asset_type: row.asset_type || ''
     };
   }
 
@@ -429,6 +441,12 @@
     var usable_bank_deposit = data.cash_on_hand - data.trust_cash;
     var available_today = usable_bank_deposit + total_available_credit;
     var monthly_interest = loans.reduce(function (s, l) { return s + (l.drawn * l.rate / 100 / 12); }, 0);
+    var rental_monthly_interest = loans.reduce(function (s, l) {
+      return s + (l.asset_type === '出租型' ? l.drawn * l.rate / 100 / 12 : 0);
+    }, 0);
+    var sale_monthly_interest = loans.reduce(function (s, l) {
+      return s + (l.asset_type === '出售型' ? l.drawn * l.rate / 100 / 12 : 0);
+    }, 0);
     var total_loan_balance = loans.reduce(function (s, l) { return s + l.drawn; }, 0);
     var stable_cash_level = (data.monthly_fixed_expense + monthly_interest) * 6 * 1.1;
     return {
@@ -436,6 +454,8 @@
       total_available_credit: total_available_credit,
       usable_bank_deposit: usable_bank_deposit,
       available_today: available_today, monthly_interest: monthly_interest,
+      rental_monthly_interest: rental_monthly_interest,
+      sale_monthly_interest: sale_monthly_interest,
       total_loan_balance: total_loan_balance,
       stable_cash_level: stable_cash_level
     };
@@ -831,6 +851,11 @@
         '<td><input type="text" class="loan-bank" value="' + esc(loan.bank) + '"></td>' +
         '<td><input type="text" class="loan-credit-name" value="' + esc(loan.credit_name) + '"></td>' +
         '<td><input type="text" class="loan-nature" value="' + esc(loan.nature) + '"></td>' +
+        '<td><select class="loan-asset-type">' +
+          '<option value=""' + (!loan.asset_type ? ' selected' : '') + '>未分類</option>' +
+          '<option value="出租型"' + (loan.asset_type === '出租型' ? ' selected' : '') + '>出租型</option>' +
+          '<option value="出售型"' + (loan.asset_type === '出售型' ? ' selected' : '') + '>出售型</option>' +
+        '</select></td>' +
         '<td><input type="text" inputmode="numeric" class="thousands-input loan-limit" value="' + fmt(loan.limit) + '"></td>' +
         '<td><input type="text" inputmode="numeric" class="thousands-input loan-drawn" value="' + fmt(loan.drawn) + '"></td>' +
         '<td>' + fmt(loan.limit - loan.drawn) + '</td>' +
@@ -847,7 +872,7 @@
       var total_drawn_all = loans.reduce(function (s, l) { return s + l.drawn; }, 0);
       var total_available_all = total_limit_all - total_drawn_all;
       tbody.innerHTML += '<tr style="font-weight: bold; background: #f9fafb;">' +
-        '<td colspan="4" style="text-align: right;">小計</td>' +
+        '<td colspan="5" style="text-align: right;">小計</td>' +
         '<td>' + fmt(total_limit_all) + '</td>' +
         '<td>' + fmt(total_drawn_all) + '</td>' +
         '<td>' + fmt(total_available_all) + '</td>' +
@@ -915,6 +940,8 @@
       '（額度合計 ' + fmt(stats.total_limit) + ' － 已動撥合計 ' + fmt(stats.total_drawn) + '）';
     document.getElementById('total-loan-balance').textContent = fmt(stats.total_loan_balance);
     document.getElementById('monthly-interest').textContent = fmt(stats.monthly_interest);
+    document.getElementById('rental-monthly-interest').textContent = fmt(stats.rental_monthly_interest);
+    document.getElementById('sale-monthly-interest').textContent = fmt(stats.sale_monthly_interest);
     document.getElementById('stable-fixed').textContent = fmt(data.monthly_fixed_expense);
     document.getElementById('stable-interest').textContent = fmt(stats.monthly_interest);
     document.getElementById('stable-level').textContent = fmt(stats.stable_cash_level);
@@ -986,6 +1013,7 @@
         bank: tr.querySelector('.loan-bank').value.trim(),
         credit_name: tr.querySelector('.loan-credit-name').value.trim(),
         nature: tr.querySelector('.loan-nature').value.trim(),
+        asset_type: tr.querySelector('.loan-asset-type').value,
         limit_amount: parseAmount(tr.querySelector('.loan-limit').value),
         drawn: parseAmount(tr.querySelector('.loan-drawn').value),
         rate: parseFloat(tr.querySelector('.loan-rate').value) || 0,
@@ -1012,6 +1040,7 @@
       bank: form.bank.value.trim(),
       credit_name: form.credit_name.value.trim() || '銀行借款',
       nature: form.nature.value.trim(),
+      asset_type: form.asset_type.value,
       limit_amount: parseAmount(form.limit.value),
       drawn: parseAmount(form.drawn.value),
       rate: parseFloat(form.rate.value) || 0,
