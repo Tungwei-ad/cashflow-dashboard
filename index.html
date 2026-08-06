@@ -38,6 +38,13 @@
   .stats-row .card { flex: 1; margin-bottom: 0; min-width: 220px; }
   .amount.secondary { color: #1d4ed8; font-size: 32px; }
   td.checkbox-col { text-align: center; }
+  #loan-table .loan-bank { min-width: 90px; }
+  #loan-table .loan-credit-name { min-width: 200px; }
+  #loan-table .loan-nature { min-width: 100px; }
+  #loan-table .loan-asset-type { min-width: 90px; }
+  #loan-table .loan-limit, #loan-table .loan-drawn { min-width: 110px; }
+  #loan-table .loan-rate { min-width: 70px; }
+  #loan-table th, #loan-table td { white-space: nowrap; }
   .toolbar { display: flex; gap: 10px; align-items: center; }
   .toolbar button { margin-top: 0; }
   #login-screen { max-width: 360px; margin: 80px auto; }
@@ -199,12 +206,14 @@
 
   <div class="card">
     <h2>銀行借款</h2>
-    <table id="loan-table" style="display:none;">
-      <thead>
-        <tr><th>計入</th><th>銀行</th><th>專案名稱</th><th>性質</th><th>資產性質</th><th>額度</th><th>已動撥</th><th>未動撥</th><th>利率 (%)</th><th></th></tr>
-      </thead>
-      <tbody id="loan-tbody"></tbody>
-    </table>
+    <div style="overflow-x: auto;">
+      <table id="loan-table" style="display:none; width: auto; min-width: 1160px;">
+        <thead>
+          <tr><th>計入</th><th>銀行</th><th>專案名稱</th><th>性質</th><th>資產性質</th><th>額度</th><th>已動撥</th><th>未動撥</th><th>利率 (%)</th><th></th></tr>
+        </thead>
+        <tbody id="loan-tbody"></tbody>
+      </table>
+    </div>
     <div class="empty" id="loan-empty">目前沒有銀行借款資料。</div>
 
     <h2 style="margin-top: 22px;">新增銀行借款</h2>
