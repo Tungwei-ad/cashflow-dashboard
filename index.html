@@ -71,15 +71,11 @@
 <body>
 
 <div id="login-screen" class="card">
-  <h2>登入東煒可動用現金監控表</h2>
+  <h2>東煒可動用現金監控表</h2>
   <form id="login-form">
     <div style="margin-bottom: 12px;">
-      <label>Email</label>
-      <input type="text" id="login-email" required>
-    </div>
-    <div style="margin-bottom: 12px;">
-      <label>密碼</label>
-      <input type="password" id="login-password" required>
+      <label>請輸入密碼</label>
+      <input type="password" id="login-password" autofocus required>
     </div>
     <button type="submit" id="login-btn">登入</button>
     <div id="login-error"></div>
@@ -759,8 +755,15 @@
   }
 
   function groupLabel(g) {
+    if (pieGroupBy === 'credit_name' && g.code) { return esc(g.code) + ' ' + esc(g.name); }
+    return esc(g.name);
+  }
+
+  function groupLabelHtml(g) {
     if (pieGroupBy !== 'credit_name') { return esc(g.name); }
-    if (pieProjectLabelMode === 'code') { return g.code ? esc(g.code) : esc(g.name); }
+    if (pieProjectLabelMode === 'code' && g.code) {
+      return esc(g.code) + ' <span style="color:#aaa;">' + esc(g.name) + '</span>';
+    }
     return esc(g.name);
   }
 
@@ -835,7 +838,7 @@
       legendParts.push(
         '<tr data-index="' + i + '" style="' + (isDimmed ? 'color:#aaa;' : '') + '">' +
           '<td style="padding:4px 6px 4px 0; white-space:nowrap;"><span style="display:inline-block; width:12px; height:12px; border-radius:2px; background:' + darkColor + ';"></span></td>' +
-          '<td style="padding:4px 10px 4px 0; white-space:nowrap;">' + groupLabel(g) + '</td>' +
+          '<td style="padding:4px 10px 4px 0; white-space:nowrap;">' + groupLabelHtml(g) + '</td>' +
           '<td style="padding:4px 10px 4px 0; ' + (isDimmed ? '' : 'color:#888;') + ' white-space:nowrap;">額度 ' + fmt(g.limit) + '</td>' +
           '<td style="padding:4px 0; ' + (isDimmed ? '' : 'color:#888;') + ' white-space:nowrap;">已動撥 ' + fmt(g.drawn) + '（' + (drawnRatio * 100).toFixed(1) + '%）</td>' +
         '</tr>'
@@ -1194,16 +1197,17 @@
     }
   }
 
+  var SHARED_LOGIN_EMAIL = 'yisheng@tungwei.com.tw';
+
   document.getElementById('login-form').addEventListener('submit', async function (e) {
     e.preventDefault();
     var btn = document.getElementById('login-btn');
     btn.disabled = true;
-    var email = document.getElementById('login-email').value.trim();
     var password = document.getElementById('login-password').value;
-    var { error } = await sb.auth.signInWithPassword({ email: email, password: password });
+    var { error } = await sb.auth.signInWithPassword({ email: SHARED_LOGIN_EMAIL, password: password });
     btn.disabled = false;
     if (error) {
-      showLogin('登入失敗：帳號或密碼錯誤');
+      showLogin('登入失敗：密碼錯誤');
       return;
     }
     document.getElementById('login-error').style.display = 'none';
