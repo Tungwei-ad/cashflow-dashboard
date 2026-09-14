@@ -183,6 +183,12 @@
       </div>
     </div>
 
+    <div class="toolbar" id="pie-project-label-toggle" style="justify-content: flex-end; margin-bottom: 10px; display: none;">
+      <span style="font-size: 12px; color: #888;">顯示：</span>
+      <button type="button" class="pie-label-btn secondary" data-mode="code" id="btn-label-code">專案代碼</button>
+      <button type="button" class="pie-label-btn" data-mode="name" id="btn-label-name">專案名稱</button>
+    </div>
+
     <div class="card" id="nature-filter-card" style="display:none; box-shadow:none; background:#f9fafb; padding:12px 16px; margin-bottom:14px;">
       <div style="font-size:13px; color:#555; margin-bottom:6px;">依性質篩選（僅套用於此圖表）</div>
       <div id="nature-filter-list" style="display:flex; flex-wrap:wrap; gap:6px 18px;"></div>
@@ -736,6 +742,7 @@
   }
 
   var pieGroupBy = 'credit_name';
+  var pieProjectLabelMode = 'name';
   var pieGroupLabels = { credit_name: '各專案額度動撥比例', bank: '各銀行別額度動撥比例', nature: '各性質額度動撥比例' };
 
   function groupLoansByField(field) {
@@ -752,7 +759,9 @@
   }
 
   function groupLabel(g) {
-    return g.code ? esc(g.code) + ' ' + esc(g.name) : esc(g.name);
+    if (pieGroupBy !== 'credit_name') { return esc(g.name); }
+    if (pieProjectLabelMode === 'code') { return g.code ? esc(g.code) : esc(g.name); }
+    return esc(g.name);
   }
 
   function polarToCartesian(cx, cy, r, angleDeg) {
@@ -863,6 +872,12 @@
     document.getElementById('btn-group-project').className = 'pie-group-btn' + (pieGroupBy === 'credit_name' ? '' : ' secondary');
     document.getElementById('btn-group-bank').className = 'pie-group-btn' + (pieGroupBy === 'bank' ? '' : ' secondary');
     document.getElementById('btn-group-nature').className = 'pie-group-btn' + (pieGroupBy === 'nature' ? '' : ' secondary');
+    document.getElementById('pie-project-label-toggle').style.display = (pieGroupBy === 'credit_name') ? 'flex' : 'none';
+  }
+
+  function updatePieLabelButtons() {
+    document.getElementById('btn-label-code').className = 'pie-label-btn' + (pieProjectLabelMode === 'code' ? '' : ' secondary');
+    document.getElementById('btn-label-name').className = 'pie-label-btn' + (pieProjectLabelMode === 'name' ? '' : ' secondary');
   }
 
   document.querySelectorAll('.pie-group-btn').forEach(function (btn) {
@@ -873,7 +888,17 @@
       renderLoanPie();
     });
   });
+
+  document.querySelectorAll('.pie-label-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      pieProjectLabelMode = btn.dataset.mode;
+      updatePieLabelButtons();
+      renderLoanPie();
+    });
+  });
+
   updatePieGroupButtons();
+  updatePieLabelButtons();
 
   function renderLoanTable() {
     var tbody = document.getElementById('loan-tbody');
