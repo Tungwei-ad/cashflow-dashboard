@@ -179,6 +179,7 @@
       <div class="toolbar">
         <button type="button" class="pie-group-btn" data-group="credit_name" id="btn-group-project">依專案</button>
         <button type="button" class="pie-group-btn secondary" data-group="bank" id="btn-group-bank">依銀行別</button>
+        <button type="button" class="pie-group-btn secondary" data-group="nature" id="btn-group-nature">依性質</button>
       </div>
     </div>
 
@@ -735,18 +736,23 @@
   }
 
   var pieGroupBy = 'credit_name';
-  var pieGroupLabels = { credit_name: '各專案額度動撥比例', bank: '各銀行別額度動撥比例' };
+  var pieGroupLabels = { credit_name: '各專案額度動撥比例', bank: '各銀行別額度動撥比例', nature: '各性質額度動撥比例' };
 
   function groupLoansByField(field) {
     var groups = {};
     var order = [];
     getFilteredLoans().forEach(function (loan) {
       var key = loan[field] || '(未命名)';
-      if (!groups[key]) { groups[key] = { name: key, limit: 0, drawn: 0 }; order.push(key); }
+      if (!groups[key]) { groups[key] = { name: key, code: '', limit: 0, drawn: 0 }; order.push(key); }
+      if (field === 'credit_name' && !groups[key].code && loan.project_code) { groups[key].code = loan.project_code; }
       groups[key].limit += loan.limit;
       groups[key].drawn += loan.drawn;
     });
     return order.map(function (key) { return groups[key]; });
+  }
+
+  function groupLabel(g) {
+    return g.code ? esc(g.code) + ' ' + esc(g.name) : esc(g.name);
   }
 
   function polarToCartesian(cx, cy, r, angleDeg) {
@@ -805,7 +811,7 @@
 
       var bgPath = wedgePath(cx, cy, r, start, end);
       var fillPath = wedgePath(cx, cy, r * drawnRatio, start, end);
-      var title = esc(g.name) + '\n額度 ' + fmt(g.limit) + '\n已動撥 ' + fmt(g.drawn) + '（' + (drawnRatio * 100).toFixed(1) + '%）';
+      var title = groupLabel(g) + '\n額度 ' + fmt(g.limit) + '\n已動撥 ' + fmt(g.drawn) + '（' + (drawnRatio * 100).toFixed(1) + '%）';
 
       var inner = '';
       if (bgPath) { inner += '<path d="' + bgPath + '" fill="' + lightColor + '" stroke="#fff" stroke-width="1"></path>'; }
@@ -820,7 +826,7 @@
       legendParts.push(
         '<tr data-index="' + i + '" style="' + (isDimmed ? 'color:#aaa;' : '') + '">' +
           '<td style="padding:4px 6px 4px 0; white-space:nowrap;"><span style="display:inline-block; width:12px; height:12px; border-radius:2px; background:' + darkColor + ';"></span></td>' +
-          '<td style="padding:4px 10px 4px 0; white-space:nowrap;">' + esc(g.name) + '</td>' +
+          '<td style="padding:4px 10px 4px 0; white-space:nowrap;">' + groupLabel(g) + '</td>' +
           '<td style="padding:4px 10px 4px 0; ' + (isDimmed ? '' : 'color:#888;') + ' white-space:nowrap;">額度 ' + fmt(g.limit) + '</td>' +
           '<td style="padding:4px 0; ' + (isDimmed ? '' : 'color:#888;') + ' white-space:nowrap;">已動撥 ' + fmt(g.drawn) + '（' + (drawnRatio * 100).toFixed(1) + '%）</td>' +
         '</tr>'
@@ -856,6 +862,7 @@
   function updatePieGroupButtons() {
     document.getElementById('btn-group-project').className = 'pie-group-btn' + (pieGroupBy === 'credit_name' ? '' : ' secondary');
     document.getElementById('btn-group-bank').className = 'pie-group-btn' + (pieGroupBy === 'bank' ? '' : ' secondary');
+    document.getElementById('btn-group-nature').className = 'pie-group-btn' + (pieGroupBy === 'nature' ? '' : ' secondary');
   }
 
   document.querySelectorAll('.pie-group-btn').forEach(function (btn) {
