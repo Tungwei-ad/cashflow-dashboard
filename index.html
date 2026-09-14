@@ -40,6 +40,7 @@
   td.checkbox-col { text-align: center; }
   #loan-table .loan-bank { min-width: 90px; }
   #loan-table .loan-credit-name { min-width: 200px; }
+  #loan-table .loan-project-code { min-width: 80px; }
   #loan-table .loan-nature { min-width: 100px; }
   #loan-table .loan-asset-type { min-width: 90px; }
   #loan-table .loan-limit, #loan-table .loan-drawn { min-width: 110px; }
@@ -50,7 +51,8 @@
   #loan-table .sticky-1 { left: 0; width: 50px; }
   #loan-table .sticky-2 { left: 50px; width: 100px; }
   #loan-table .sticky-3 { left: 150px; width: 220px; }
-  #loan-table .sticky-4 { left: 370px; width: 110px; box-shadow: 2px 0 4px rgba(0,0,0,0.08); }
+  #loan-table .sticky-4 { left: 370px; width: 90px; }
+  #loan-table .sticky-5 { left: 460px; width: 110px; box-shadow: 2px 0 4px rgba(0,0,0,0.08); }
   .toolbar { display: flex; gap: 10px; align-items: center; }
   .toolbar button { margin-top: 0; }
   #login-screen { max-width: 360px; margin: 80px auto; }
@@ -213,13 +215,14 @@
   <div class="card">
     <h2>銀行借款</h2>
     <div style="overflow-x: auto;">
-      <table id="loan-table" style="display:none; width: auto; min-width: 1160px;">
+      <table id="loan-table" style="display:none; width: auto; min-width: 1240px;">
         <thead>
           <tr>
             <th class="sticky-col sticky-1">計入</th>
             <th class="sticky-col sticky-2">銀行</th>
             <th class="sticky-col sticky-3">專案名稱</th>
-            <th class="sticky-col sticky-4">性質</th>
+            <th class="sticky-col sticky-4">專案代碼</th>
+            <th class="sticky-col sticky-5">性質</th>
             <th>資產性質</th><th>額度</th><th>已動撥</th><th>未動撥</th><th>利率 (%)</th><th></th>
           </tr>
         </thead>
@@ -238,6 +241,10 @@
         <div>
           <label>專案名稱</label>
           <input type="text" name="credit_name" placeholder="例如：內湖潭美案" required>
+        </div>
+        <div>
+          <label>專案代碼</label>
+          <input type="text" name="project_code" placeholder="例如：TP03">
         </div>
         <div>
           <label>性質</label>
@@ -377,6 +384,7 @@
   function loanFromRow(row) {
     return {
       id: row.id, bank: row.bank, credit_name: row.credit_name, nature: row.nature,
+      project_code: row.project_code || '',
       limit: Number(row.limit_amount), drawn: Number(row.drawn), rate: Number(row.rate),
       included: row.included, asset_type: row.asset_type || ''
     };
@@ -871,7 +879,8 @@
         '<td class="checkbox-col sticky-col sticky-1"><input type="checkbox" class="loan-included"' + (loan.included !== false ? ' checked' : '') + '></td>' +
         '<td class="sticky-col sticky-2"><input type="text" class="loan-bank" value="' + esc(loan.bank) + '"></td>' +
         '<td class="sticky-col sticky-3"><input type="text" class="loan-credit-name" value="' + esc(loan.credit_name) + '"></td>' +
-        '<td class="sticky-col sticky-4"><input type="text" class="loan-nature" value="' + esc(loan.nature) + '"></td>' +
+        '<td class="sticky-col sticky-4"><input type="text" class="loan-project-code" value="' + esc(loan.project_code) + '"></td>' +
+        '<td class="sticky-col sticky-5"><input type="text" class="loan-nature" value="' + esc(loan.nature) + '"></td>' +
         '<td><select class="loan-asset-type">' +
           '<option value=""' + (!loan.asset_type ? ' selected' : '') + '>未分類</option>' +
           '<option value="出租型"' + (loan.asset_type === '出租型' ? ' selected' : '') + '>出租型</option>' +
@@ -893,7 +902,7 @@
       var total_drawn_all = loans.reduce(function (s, l) { return s + l.drawn; }, 0);
       var total_available_all = total_limit_all - total_drawn_all;
       tbody.innerHTML += '<tr style="font-weight: bold; background: #f9fafb;">' +
-        '<td colspan="4" class="sticky-col" style="left:0; text-align: right; background: #f9fafb;">小計</td>' +
+        '<td colspan="5" class="sticky-col" style="left:0; text-align: right; background: #f9fafb;">小計</td>' +
         '<td></td>' +
         '<td>' + fmt(total_limit_all) + '</td>' +
         '<td>' + fmt(total_drawn_all) + '</td>' +
@@ -1034,6 +1043,7 @@
       var payload = {
         bank: tr.querySelector('.loan-bank').value.trim(),
         credit_name: tr.querySelector('.loan-credit-name').value.trim(),
+        project_code: tr.querySelector('.loan-project-code').value.trim(),
         nature: tr.querySelector('.loan-nature').value.trim(),
         asset_type: tr.querySelector('.loan-asset-type').value,
         limit_amount: parseAmount(tr.querySelector('.loan-limit').value),
@@ -1061,6 +1071,7 @@
     var payload = {
       bank: form.bank.value.trim(),
       credit_name: form.credit_name.value.trim() || '銀行借款',
+      project_code: form.project_code.value.trim(),
       nature: form.nature.value.trim(),
       asset_type: form.asset_type.value,
       limit_amount: parseAmount(form.limit.value),
