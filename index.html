@@ -402,7 +402,7 @@
 <script>
   var SUPABASE_URL = 'https://cykdmfewgoacaynxhbfy.supabase.co';
   var SUPABASE_ANON_KEY = 'sb_publishable_fJYq2vsSrEMEPB7uamEVMA_MIf2EnQh';
-  var sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  var sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { storageKey: 'cashflow-main-auth' } });
 
   var data = { cash_on_hand: 0, trust_cash: 0, monthly_fixed_expense: 0, cash_updated_at: null, bank_loans: [], transactions: [] };
   var knownNatures = new Set();

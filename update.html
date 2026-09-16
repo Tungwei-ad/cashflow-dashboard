@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<title>東煒銀行存款與借款更新</title>
+<script>
+  (function () {
+    var saved = null;
+    try { saved = localStorage.getItem('cashflow_theme'); } catch (e) {}
+    var theme = saved || ((window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light');
+    document.documentElement.setAttribute('data-theme', theme);
+  })();
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+  :root {
+    --page-bg: #f4f5f7;
+    --surface: #ffffff;
+    --surface-alt: #f9fafb;
+    --text-primary: #222222;
+    --text-heading: #333333;
+    --text-secondary: #555555;
+    --text-muted: #898781;
+    --border: #cccccc;
+    --border-light: #eeeeee;
+    --shadow: rgba(0,0,0,0.1);
+  }
+  :root[data-theme="dark"] {
+    --page-bg: #0d0d0d;
+    --surface: #1a1a19;
+    --surface-alt: #242422;
+    --text-primary: #f0f0ee;
+    --text-heading: #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted: #898781;
+    --border: #444442;
+    --border-light: #333331;
+    --shadow: rgba(0,0,0,0.5);
+  }
+  body { font-family: "Microsoft JhengHei", "Segoe UI", sans-serif; background: var(--page-bg); margin: 0; padding: 24px; color: var(--text-primary); transition: background 0.15s ease, color 0.15s ease; }
+  .container { max-width: 1000px; margin: 0 auto; }
+  h1 { font-size: 20px; margin-bottom: 4px; }
+  .subtitle { color: var(--text-secondary); margin-bottom: 20px; }
+  .card { background: var(--surface); border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 3px var(--shadow); }
+  .card h2 { font-size: 16px; margin-top: 0; margin-bottom: 14px; color: var(--text-heading); }
+  .breakdown { color: var(--text-muted); font-size: 13px; margin-top: 6px; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  label { display: block; font-size: 13px; color: var(--text-secondary); margin-bottom: 4px; }
+  input[type=number], input[type=text], input[type=password], select {
+    width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 4px; box-sizing: border-box;
+    font-size: 14px; background: var(--surface); color: var(--text-primary);
+  }
+  button { background: #2563eb; color: #fff; border: none; border-radius: 4px; padding: 9px 18px; font-size: 14px; cursor: pointer; margin-top: 12px; }
+  button:hover { background: #1d4ed8; }
+  button.danger { background: #dc2626; padding: 4px 10px; font-size: 12px; margin-top: 0; }
+  button.danger:hover { background: #b91c1c; }
+  button.secondary { background: #6b7280; }
+  button.secondary:hover { background: #4b5563; }
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--border-light); }
+  th { color: var(--text-secondary); font-weight: 600; font-size: 13px; }
+  .empty { color: var(--text-muted); font-size: 13px; padding: 10px 0; }
+  td.checkbox-col { text-align: center; }
+  #loan-table .loan-bank { min-width: 90px; }
+  #loan-table .loan-credit-name { min-width: 200px; }
+  #loan-table .loan-project-code { min-width: 80px; }
+  #loan-table .loan-nature { min-width: 100px; }
+  #loan-table .loan-asset-type { min-width: 90px; }
+  #loan-table .loan-limit, #loan-table .loan-drawn { min-width: 110px; }
+  #loan-table .loan-rate { min-width: 70px; }
+  #loan-table th, #loan-table td { white-space: nowrap; }
+  #loan-table .sticky-col { position: sticky; background: var(--surface); z-index: 2; }
+  #loan-table th.sticky-col { z-index: 3; }
+  #loan-table .sticky-1 { left: 0; width: 50px; }
+  #loan-table .sticky-2 { left: 50px; width: 100px; }
+  #loan-table .sticky-3 { left: 150px; width: 220px; }
+  #loan-table .sticky-4 { left: 370px; width: 90px; }
+  #loan-table .sticky-5 { left: 460px; width: 110px; box-shadow: 2px 0 4px var(--shadow); }
+  .toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .toolbar button { margin-top: 0; }
+  .table-scroll { overflow-x: auto; }
+  #login-screen { max-width: 360px; margin: 80px auto; }
+  #login-error { color: #c0392b; font-size: 13px; margin-top: 8px; display: none; }
+  #sync-status { font-size: 12px; color: var(--text-muted); }
+  .theme-toggle-btn { background: var(--surface-alt); color: var(--text-primary); border: 1px solid var(--border); }
+  .theme-toggle-btn:hover { background: var(--border-light); }
+  @media (max-width: 640px) {
+    body { padding: 12px; }
+    .card { padding: 14px; }
+    .grid { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 420px) {
+    .grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div id="login-screen" class="card">
+  <div style="display:flex; justify-content:space-between; align-items:center;">
+    <h2 style="margin-bottom:0;">東煒銀行存款與借款更新</h2>
+    <button type="button" class="theme-toggle-btn" id="btn-theme-toggle-login" style="margin-top:0; padding:6px 10px; font-size:12px;">🌙</button>
+  </div>
+  <form id="login-form">
+    <div style="margin-bottom: 12px; margin-top: 12px;">
+      <label>請輸入密碼</label>
+      <input type="password" id="login-password" autofocus required>
+    </div>
+    <button type="submit" id="login-btn">登入</button>
+    <div id="login-error"></div>
+  </form>
+</div>
+
+<div id="app" class="container" style="display:none;">
+  <div class="toolbar" style="justify-content: space-between;">
+    <h1>東煒銀行存款與借款更新</h1>
+    <div class="toolbar">
+      <span id="sync-status"></span>
+      <button type="button" class="theme-toggle-btn" id="btn-theme-toggle">🌙</button>
+      <button type="button" class="secondary" id="btn-logout">登出</button>
+    </div>
+  </div>
+  <div class="subtitle">此頁面僅能更新銀行存款、信託戶現金、銀行借款，更新後主監控表會同步顯示。</div>
+
+  <div class="card">
+    <h2>更新銀行存款</h2>
+    <div class="grid">
+      <div>
+        <label>銀行存款</label>
+        <input type="text" inputmode="numeric" class="thousands-input" id="cash-input">
+      </div>
+      <div>
+        <label>信託戶現金(不可動用)</label>
+        <input type="text" inputmode="numeric" class="thousands-input" id="trust-cash-input">
+      </div>
+    </div>
+    <button type="button" id="btn-save-cash">儲存</button>
+    <div class="breakdown" id="cash-updated-at" style="margin-top: 8px;"></div>
+  </div>
+
+  <div class="card">
+    <h2>銀行借款</h2>
+    <div class="table-scroll">
+      <table id="loan-table" style="display:none; width: auto; min-width: 1240px;">
+        <thead>
+          <tr>
+            <th class="sticky-col sticky-1">計入</th>
+            <th class="sticky-col sticky-2">銀行</th>
+            <th class="sticky-col sticky-3">專案名稱</th>
+            <th class="sticky-col sticky-4">專案代碼</th>
+            <th class="sticky-col sticky-5">性質</th>
+            <th>資產性質</th><th>額度</th><th>已動撥</th><th>未動撥</th><th>利率 (%)</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="loan-tbody"></tbody>
+      </table>
+    </div>
+    <div class="empty" id="loan-empty">目前沒有銀行借款資料。</div>
+
+    <h2 style="margin-top: 22px;">新增銀行借款</h2>
+    <form id="add-loan-form">
+      <div class="grid">
+        <div>
+          <label>銀行</label>
+          <input type="text" name="bank" placeholder="例如：台灣銀行">
+        </div>
+        <div>
+          <label>專案名稱</label>
+          <input type="text" name="credit_name" placeholder="例如：內湖潭美案" required>
+        </div>
+        <div>
+          <label>專案代碼</label>
+          <input type="text" name="project_code" placeholder="例如：TP03">
+        </div>
+        <div>
+          <label>性質</label>
+          <input type="text" name="nature" placeholder="例如：建融、土融、發票融資">
+        </div>
+        <div>
+          <label>資產性質</label>
+          <select name="asset_type">
+            <option value="">未分類</option>
+            <option value="出租型">出租型</option>
+            <option value="出售型">出售型</option>
+          </select>
+        </div>
+        <div>
+          <label>額度</label>
+          <input type="text" inputmode="numeric" class="thousands-input" name="limit" required>
+        </div>
+        <div>
+          <label>已動撥金額</label>
+          <input type="text" inputmode="numeric" class="thousands-input" name="drawn" value="0" required>
+        </div>
+        <div>
+          <label>利率 (%)</label>
+          <input type="number" step="0.0001" min="0" name="rate" value="0" required>
+        </div>
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <input type="checkbox" name="included" checked style="width: auto;">
+          <label style="margin-bottom: 0;">計入可動用現金</label>
+        </div>
+      </div>
+      <button type="submit">新增</button>
+    </form>
+  </div>
+
+</div>
+
+<script>
+  var SUPABASE_URL = 'https://cykdmfewgoacaynxhbfy.supabase.co';
+  var SUPABASE_ANON_KEY = 'sb_publishable_fJYq2vsSrEMEPB7uamEVMA_MIf2EnQh';
+  var sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { storageKey: 'cashflow-update-auth' } });
+
+  var data = { cash_on_hand: 0, trust_cash: 0, cash_updated_at: null, bank_loans: [] };
+
+  function isDarkMode() { return document.documentElement.getAttribute('data-theme') === 'dark'; }
+
+  function updateThemeToggleUI() {
+    var label = isDarkMode() ? '☀️' : '🌙';
+    var main = document.getElementById('btn-theme-toggle');
+    var login = document.getElementById('btn-theme-toggle-login');
+    if (main) main.textContent = label;
+    if (login) login.textContent = label;
+  }
+
+  function applyTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    try { localStorage.setItem('cashflow_theme', theme); } catch (e) {}
+    updateThemeToggleUI();
+  }
+
+  function toggleTheme() { applyTheme(isDarkMode() ? 'light' : 'dark'); }
+
+  document.getElementById('btn-theme-toggle').addEventListener('click', toggleTheme);
+  document.getElementById('btn-theme-toggle-login').addEventListener('click', toggleTheme);
+  updateThemeToggleUI();
+
+  function fmt(n) { return Math.round(n || 0).toLocaleString('en-US'); }
+
+  function parseAmount(value) {
+    return parseFloat((value || '0').toString().replace(/,/g, '')) || 0;
+  }
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function formatThousands(digits) {
+    digits = digits.replace(/[^0-9]/g, '').replace(/^0+(?=\d)/, '');
+    return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  }
+
+  document.addEventListener('input', function (e) {
+    if (e.target.classList && e.target.classList.contains('thousands-input')) {
+      var raw = e.target.value.replace(/,/g, '');
+      e.target.value = formatThousands(raw);
+    }
+  });
+
+  function loanFromRow(row) {
+    return {
+      id: row.id, bank: row.bank, credit_name: row.credit_name, nature: row.nature,
+      project_code: row.project_code || '',
+      limit: Number(row.limit_amount), drawn: Number(row.drawn), rate: Number(row.rate),
+      included: row.included, asset_type: row.asset_type || ''
+    };
+  }
+
+  function setSyncStatus(text) {
+    var el = document.getElementById('sync-status');
+    if (el) el.textContent = text;
+  }
+
+  async function loadAll() {
+    setSyncStatus('讀取中...');
+    var cashRes = await sb.from('cash_settings').select('*').eq('id', 1).single();
+    var loansRes = await sb.from('bank_loans').select('*').order('id');
+
+    if (cashRes.error || loansRes.error) {
+      setSyncStatus('讀取失敗');
+      console.error(cashRes.error || loansRes.error);
+      return;
+    }
+
+    data.cash_on_hand = Number(cashRes.data.cash_on_hand);
+    data.trust_cash = Number(cashRes.data.trust_cash);
+    data.cash_updated_at = cashRes.data.updated_at;
+    data.bank_loans = loansRes.data.map(loanFromRow);
+
+    setSyncStatus('已同步（' + new Date().toLocaleTimeString('zh-TW') + '）');
+    render();
+  }
+
+  function renderLoanTable() {
+    var tbody = document.getElementById('loan-tbody');
+    var loans = data.bank_loans;
+    document.getElementById('loan-table').style.display = loans.length ? '' : 'none';
+    document.getElementById('loan-empty').style.display = loans.length ? 'none' : '';
+
+    tbody.innerHTML = loans.map(function (loan) {
+      return '<tr data-id="' + loan.id + '">' +
+        '<td class="checkbox-col sticky-col sticky-1"><input type="checkbox" class="loan-included"' + (loan.included !== false ? ' checked' : '') + '></td>' +
+        '<td class="sticky-col sticky-2"><input type="text" class="loan-bank" value="' + esc(loan.bank) + '"></td>' +
+        '<td class="sticky-col sticky-3"><input type="text" class="loan-credit-name" value="' + esc(loan.credit_name) + '"></td>' +
+        '<td class="sticky-col sticky-4"><input type="text" class="loan-project-code" value="' + esc(loan.project_code) + '"></td>' +
+        '<td class="sticky-col sticky-5"><input type="text" class="loan-nature" value="' + esc(loan.nature) + '"></td>' +
+        '<td><select class="loan-asset-type">' +
+          '<option value=""' + (!loan.asset_type ? ' selected' : '') + '>未分類</option>' +
+          '<option value="出租型"' + (loan.asset_type === '出租型' ? ' selected' : '') + '>出租型</option>' +
+          '<option value="出售型"' + (loan.asset_type === '出售型' ? ' selected' : '') + '>出售型</option>' +
+        '</select></td>' +
+        '<td><input type="text" inputmode="numeric" class="thousands-input loan-limit" value="' + fmt(loan.limit) + '"></td>' +
+        '<td><input type="text" inputmode="numeric" class="thousands-input loan-drawn" value="' + fmt(loan.drawn) + '"></td>' +
+        '<td>' + fmt(loan.limit - loan.drawn) + '</td>' +
+        '<td><input type="number" step="0.0001" class="loan-rate" value="' + loan.rate + '"></td>' +
+        '<td style="white-space: nowrap;">' +
+          '<button type="button" class="btn-update-loan">更新</button> ' +
+          '<button type="button" class="btn-delete-loan danger">刪除</button>' +
+        '</td>' +
+      '</tr>';
+    }).join('');
+
+    if (loans.length) {
+      var total_limit_all = loans.reduce(function (s, l) { return s + l.limit; }, 0);
+      var total_drawn_all = loans.reduce(function (s, l) { return s + l.drawn; }, 0);
+      var total_available_all = total_limit_all - total_drawn_all;
+      tbody.innerHTML += '<tr style="font-weight: bold; background: var(--surface-alt);">' +
+        '<td colspan="5" class="sticky-col" style="left:0; text-align: right; background: var(--surface-alt);">小計</td>' +
+        '<td></td>' +
+        '<td>' + fmt(total_limit_all) + '</td>' +
+        '<td>' + fmt(total_drawn_all) + '</td>' +
+        '<td>' + fmt(total_available_all) + '</td>' +
+        '<td></td><td></td>' +
+      '</tr>';
+    }
+  }
+
+  function render() {
+    if (document.activeElement !== document.getElementById('cash-input')) {
+      document.getElementById('cash-input').value = fmt(data.cash_on_hand);
+    }
+    if (document.activeElement !== document.getElementById('trust-cash-input')) {
+      document.getElementById('trust-cash-input').value = fmt(data.trust_cash);
+    }
+    document.getElementById('cash-updated-at').textContent = data.cash_updated_at
+      ? '最後更新時間：' + new Date(data.cash_updated_at).toLocaleString('zh-TW')
+      : '';
+    renderLoanTable();
+  }
+
+  // --- 銀行存款 / 信託戶現金 ---
+  document.getElementById('btn-save-cash').addEventListener('click', async function () {
+    var cashValue = parseAmount(document.getElementById('cash-input').value);
+    var trustValue = parseAmount(document.getElementById('trust-cash-input').value);
+    setSyncStatus('儲存中...');
+    var { error } = await sb.from('cash_settings')
+      .update({ cash_on_hand: cashValue, trust_cash: trustValue, updated_at: new Date().toISOString() })
+      .eq('id', 1);
+    if (error) { alert('儲存失敗：' + error.message); setSyncStatus('儲存失敗'); return; }
+    await loadAll();
+  });
+
+  // --- 銀行借款表格：勾選、更新、刪除（事件委派） ---
+  document.getElementById('loan-tbody').addEventListener('change', async function (e) {
+    if (e.target.classList.contains('loan-included')) {
+      var id = Number(e.target.closest('tr').dataset.id);
+      var checked = e.target.checked;
+      setSyncStatus('儲存中...');
+      var { error } = await sb.from('bank_loans').update({ included: checked }).eq('id', id);
+      if (error) { alert('更新失敗：' + error.message); }
+      await loadAll();
+    }
+  });
+
+  document.getElementById('loan-tbody').addEventListener('click', async function (e) {
+    var tr = e.target.closest('tr');
+    if (!tr) return;
+    var id = Number(tr.dataset.id);
+
+    if (e.target.classList.contains('btn-update-loan')) {
+      var payload = {
+        bank: tr.querySelector('.loan-bank').value.trim(),
+        credit_name: tr.querySelector('.loan-credit-name').value.trim(),
+        project_code: tr.querySelector('.loan-project-code').value.trim(),
+        nature: tr.querySelector('.loan-nature').value.trim(),
+        asset_type: tr.querySelector('.loan-asset-type').value,
+        limit_amount: parseAmount(tr.querySelector('.loan-limit').value),
+        drawn: parseAmount(tr.querySelector('.loan-drawn').value),
+        rate: parseFloat(tr.querySelector('.loan-rate').value) || 0,
+        updated_at: new Date().toISOString()
+      };
+      setSyncStatus('儲存中...');
+      var { error } = await sb.from('bank_loans').update(payload).eq('id', id);
+      if (error) { alert('更新失敗：' + error.message); setSyncStatus('儲存失敗'); return; }
+      await loadAll();
+    } else if (e.target.classList.contains('btn-delete-loan')) {
+      if (!confirm('確定要刪除這筆銀行借款嗎？')) return;
+      setSyncStatus('刪除中...');
+      var { error } = await sb.from('bank_loans').delete().eq('id', id);
+      if (error) { alert('刪除失敗：' + error.message); setSyncStatus('刪除失敗'); return; }
+      await loadAll();
+    }
+  });
+
+  // --- 新增銀行借款 ---
+  document.getElementById('add-loan-form').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    var form = e.target;
+    var payload = {
+      bank: form.bank.value.trim(),
+      credit_name: form.credit_name.value.trim() || '銀行借款',
+      project_code: form.project_code.value.trim(),
+      nature: form.nature.value.trim(),
+      asset_type: form.asset_type.value,
+      limit_amount: parseAmount(form.limit.value),
+      drawn: parseAmount(form.drawn.value),
+      rate: parseFloat(form.rate.value) || 0,
+      included: form.included.checked
+    };
+    setSyncStatus('新增中...');
+    var { error } = await sb.from('bank_loans').insert(payload);
+    if (error) { alert('新增失敗：' + error.message); setSyncStatus('新增失敗'); return; }
+    form.reset();
+    await loadAll();
+  });
+
+  // --- 即時同步 ---
+  var realtimeChannel = null;
+  function subscribeRealtime() {
+    if (realtimeChannel) return;
+    realtimeChannel = sb.channel('cashflow-update-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'cash_settings' }, loadAll)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bank_loans' }, loadAll)
+      .subscribe();
+  }
+
+  var autoRefreshTimer = null;
+  function startAutoRefresh() {
+    if (autoRefreshTimer) return;
+    autoRefreshTimer = setInterval(loadAll, 10 * 60 * 1000);
+  }
+  function stopAutoRefresh() {
+    if (autoRefreshTimer) { clearInterval(autoRefreshTimer); autoRefreshTimer = null; }
+  }
+
+  function showApp() {
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app').style.display = '';
+    subscribeRealtime();
+    startAutoRefresh();
+    loadAll();
+  }
+
+  function showLogin(message) {
+    document.getElementById('login-screen').style.display = '';
+    document.getElementById('app').style.display = 'none';
+    if (message) {
+      var err = document.getElementById('login-error');
+      err.textContent = message;
+      err.style.display = '';
+    }
+  }
+
+  var RESTRICTED_LOGIN_EMAIL = 'editor@tungwei.com.tw';
+
+  document.getElementById('login-form').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    var btn = document.getElementById('login-btn');
+    btn.disabled = true;
+    var password = document.getElementById('login-password').value;
+    var { error } = await sb.auth.signInWithPassword({ email: RESTRICTED_LOGIN_EMAIL, password: password });
+    btn.disabled = false;
+    if (error) {
+      showLogin('登入失敗：密碼錯誤');
+      return;
+    }
+    document.getElementById('login-error').style.display = 'none';
+    showApp();
+  });
+
+  document.getElementById('btn-logout').addEventListener('click', async function () {
+    if (realtimeChannel) { sb.removeChannel(realtimeChannel); realtimeChannel = null; }
+    stopAutoRefresh();
+    await sb.auth.signOut();
+    showLogin();
+  });
+
+  (async function init() {
+    var { data: sessionData } = await sb.auth.getSession();
+    if (sessionData && sessionData.session) {
+      showApp();
+    } else {
+      showLogin();
+    }
+  })();
+</script>
+</body>
+</html>
