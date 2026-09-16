@@ -239,6 +239,7 @@
         <button type="button" class="pie-group-btn" data-group="credit_name" id="btn-group-project">依專案</button>
         <button type="button" class="pie-group-btn secondary" data-group="bank" id="btn-group-bank">依銀行別</button>
         <button type="button" class="pie-group-btn secondary" data-group="nature" id="btn-group-nature">依性質</button>
+        <button type="button" class="pie-group-btn secondary" data-group="asset_type" id="btn-group-asset-type">依資產性質</button>
       </div>
     </div>
 
@@ -847,13 +848,17 @@
 
   var pieGroupBy = 'credit_name';
   var pieProjectLabelMode = 'name';
-  var pieGroupLabels = { credit_name: '各專案額度動撥比例', bank: '各銀行別額度動撥比例', nature: '各性質額度動撥比例' };
+  var pieGroupLabels = {
+    credit_name: '各專案額度動撥比例', bank: '各銀行別額度動撥比例',
+    nature: '各性質額度動撥比例', asset_type: '各資產性質額度動撥比例'
+  };
+  var pieGroupUnclassifiedLabel = { asset_type: '(未分類)' };
 
   function groupLoansByField(field) {
     var groups = {};
     var order = [];
     getFilteredLoans().forEach(function (loan) {
-      var key = loan[field] || '(未命名)';
+      var key = loan[field] || pieGroupUnclassifiedLabel[field] || '(未命名)';
       if (!groups[key]) { groups[key] = { name: key, code: '', limit: 0, drawn: 0 }; order.push(key); }
       if (field === 'credit_name' && !groups[key].code && loan.project_code) { groups[key].code = loan.project_code; }
       groups[key].limit += loan.limit;
@@ -989,6 +994,7 @@
     document.getElementById('btn-group-project').className = 'pie-group-btn' + (pieGroupBy === 'credit_name' ? '' : ' secondary');
     document.getElementById('btn-group-bank').className = 'pie-group-btn' + (pieGroupBy === 'bank' ? '' : ' secondary');
     document.getElementById('btn-group-nature').className = 'pie-group-btn' + (pieGroupBy === 'nature' ? '' : ' secondary');
+    document.getElementById('btn-group-asset-type').className = 'pie-group-btn' + (pieGroupBy === 'asset_type' ? '' : ' secondary');
     document.getElementById('pie-project-label-toggle').style.display = (pieGroupBy === 'credit_name') ? 'flex' : 'none';
   }
 
