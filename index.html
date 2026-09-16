@@ -279,9 +279,16 @@
   </div>
 
   <div class="card">
-    <h2>銀行借款</h2>
+    <div class="toolbar" style="justify-content: space-between;">
+      <h2 style="margin-bottom: 0;">銀行借款</h2>
+      <div class="toolbar">
+        <span id="loan-save-status" style="font-size: 12px; color: var(--text-muted);"></span>
+        <button type="button" id="btn-update-all-loans">全部更新</button>
+      </div>
+    </div>
+    <div class="breakdown" style="margin-bottom: 6px;">欄位都改好後，按「全部更新」一次儲存所有異動；「計入」勾選會即時自動儲存，不用另外按。</div>
     <div style="overflow-x: auto;">
-      <table id="loan-table" style="display:none; width: auto; min-width: 1240px;">
+      <table id="loan-table" style="display:none; width: auto; min-width: 1200px;">
         <thead>
           <tr>
             <th class="sticky-col sticky-1">計入</th>
@@ -1033,7 +1040,6 @@
         '<td>' + fmt(loan.limit - loan.drawn) + '</td>' +
         '<td><input type="number" step="0.0001" class="loan-rate" value="' + loan.rate + '"></td>' +
         '<td style="white-space: nowrap;">' +
-          '<button type="button" class="btn-update-loan">更新</button> ' +
           '<button type="button" class="btn-delete-loan danger">刪除</button>' +
         '</td>' +
       '</tr>';
@@ -1181,7 +1187,22 @@
     if (!tr) return;
     var id = Number(tr.dataset.id);
 
-    if (e.target.classList.contains('btn-update-loan')) {
+    if (e.target.classList.contains('btn-delete-loan')) {
+      if (!confirm('確定要刪除這筆銀行借款嗎？')) return;
+      setSyncStatus('刪除中...');
+      var { error } = await sb.from('bank_loans').delete().eq('id', id);
+      if (error) { alert('刪除失敗：' + error.message); setSyncStatus('刪除失敗'); return; }
+      await loadAll();
+    }
+  });
+
+  // --- 全部更新（一次按鍵，平行送出表格內所有列的異動） ---
+  document.getElementById('btn-update-all-loans').addEventListener('click', async function () {
+    var rows = Array.from(document.querySelectorAll('#loan-tbody tr[data-id]'));
+    if (!rows.length) return;
+    var statusEl = document.getElementById('loan-save-status');
+    var updates = rows.map(function (tr) {
+      var id = Number(tr.dataset.id);
       var payload = {
         bank: tr.querySelector('.loan-bank').value.trim(),
         credit_name: tr.querySelector('.loan-credit-name').value.trim(),
@@ -1193,17 +1214,20 @@
         rate: parseFloat(tr.querySelector('.loan-rate').value) || 0,
         updated_at: new Date().toISOString()
       };
-      setSyncStatus('儲存中...');
-      var { error } = await sb.from('bank_loans').update(payload).eq('id', id);
-      if (error) { alert('更新失敗：' + error.message); setSyncStatus('儲存失敗'); return; }
-      await loadAll();
-    } else if (e.target.classList.contains('btn-delete-loan')) {
-      if (!confirm('確定要刪除這筆銀行借款嗎？')) return;
-      setSyncStatus('刪除中...');
-      var { error } = await sb.from('bank_loans').delete().eq('id', id);
-      if (error) { alert('刪除失敗：' + error.message); setSyncStatus('刪除失敗'); return; }
-      await loadAll();
+      return sb.from('bank_loans').update(payload).eq('id', id);
+    });
+    statusEl.textContent = '儲存中...';
+    setSyncStatus('儲存中...');
+    var results = await Promise.all(updates);
+    var firstError = results.map(function (r) { return r.error; }).find(function (err) { return err; });
+    if (firstError) {
+      alert('全部更新失敗：' + firstError.message);
+      statusEl.textContent = '儲存失敗';
+      setSyncStatus('儲存失敗');
+      return;
     }
+    statusEl.textContent = '已全部更新（' + updates.length + ' 筆）';
+    await loadAll();
   });
 
   // --- 新增銀行借款 ---
