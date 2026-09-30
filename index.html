@@ -132,11 +132,12 @@
   #loan-table th, #loan-table td { white-space: nowrap; }
   #loan-table .sticky-col { position: sticky; background: var(--surface); z-index: 2; }
   #loan-table th.sticky-col { z-index: 3; }
-  #loan-table .sticky-1 { left: 0; width: 50px; }
-  #loan-table .sticky-2 { left: 50px; width: 100px; }
-  #loan-table .sticky-3 { left: 150px; width: 220px; }
-  #loan-table .sticky-4 { left: 370px; width: 90px; }
-  #loan-table .sticky-5 { left: 460px; width: 110px; box-shadow: 2px 0 4px var(--shadow); }
+  #loan-table th.sticky-1 { white-space: normal; }
+  #loan-table .sticky-1 { left: 0; width: 76px; }
+  #loan-table .sticky-2 { left: 76px; width: 100px; }
+  #loan-table .sticky-3 { left: 176px; width: 220px; }
+  #loan-table .sticky-4 { left: 396px; width: 90px; }
+  #loan-table .sticky-5 { left: 486px; width: 110px; box-shadow: 2px 0 4px var(--shadow); }
   .toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
   .toolbar button { margin-top: 0; }
   .chart-svg { max-width: 100%; height: auto; }
@@ -369,10 +370,10 @@
     </div>
     <div class="breakdown" style="margin-bottom: 6px;">欄位都改好後，按「全部更新」一次儲存所有異動；「計入」勾選會即時自動儲存，不用另外按。</div>
     <div style="overflow-x: auto;">
-      <table id="loan-table" style="display:none; width: auto; min-width: 1200px;">
+      <table id="loan-table" style="display:none; width: auto; min-width: 1230px;">
         <thead>
           <tr>
-            <th class="sticky-col sticky-1">計入</th>
+            <th class="sticky-col sticky-1">可否隨時<br>動撥</th>
             <th class="sticky-col sticky-2">銀行</th>
             <th class="sticky-col sticky-3">專案名稱</th>
             <th class="sticky-col sticky-4">專案代碼</th>
