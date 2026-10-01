@@ -266,6 +266,12 @@
   </div>
 
   <div class="card">
+    <h2>每日可動用現金趨勢</h2>
+    <svg id="cash-history-chart" class="chart-svg" width="1200" height="280" viewBox="0 0 1200 280"></svg>
+    <div class="empty" id="cash-history-empty" style="display:none;">目前沒有歷史紀錄，系統將於每天 23:59 自動記錄一筆。</div>
+  </div>
+
+  <div class="card">
     <div class="toolbar" style="justify-content: space-between; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--border-light); flex-wrap: wrap; gap: 10px;">
       <h2 style="margin-bottom: 0; border-bottom: none; padding-bottom: 0;">利率 vs. 已動撥分布圖</h2>
       <div class="toolbar" id="scatter-bank-filter" style="flex-wrap: wrap;"></div>
@@ -435,7 +441,7 @@
   var SUPABASE_ANON_KEY = 'sb_publishable_fJYq2vsSrEMEPB7uamEVMA_MIf2EnQh';
   var sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { storageKey: 'cashflow-main-auth' } });
 
-  var data = { cash_on_hand: 0, trust_cash: 0, monthly_fixed_expense: 0, cash_updated_at: null, bank_loans: [], transactions: [] };
+  var data = { cash_on_hand: 0, trust_cash: 0, monthly_fixed_expense: 0, cash_updated_at: null, bank_loans: [], transactions: [], cash_history: [] };
   var knownNatures = new Set();
   var natureFilter = new Set();
   var knownBanks = new Set();
@@ -535,6 +541,7 @@
     var cashRes = await sb.from('cash_settings').select('*').eq('id', 1).single();
     var loansRes = await sb.from('bank_loans').select('*').order('id');
     var txRes = await sb.from('transactions').select('*').order('id');
+    var historyRes = await sb.from('daily_cash_snapshots').select('snapshot_date, available_cash').order('snapshot_date', { ascending: false }).limit(60);
 
     if (cashRes.error || loansRes.error || txRes.error) {
       setSyncStatus('讀取失敗');
@@ -548,6 +555,9 @@
     data.cash_updated_at = cashRes.data.updated_at;
     data.bank_loans = loansRes.data.map(loanFromRow);
     data.transactions = txRes.data.map(txFromRow);
+    data.cash_history = historyRes.error ? [] : historyRes.data.slice().reverse().map(function (row) {
+      return { date: row.snapshot_date, available_cash: Number(row.available_cash) };
+    });
 
     data.bank_loans.forEach(function (loan) {
       var nature = loan.nature || '(未分類)';
@@ -734,6 +744,76 @@
     statusEl.textContent = pass
       ? '✓ 今日可動用現金高於穩健水位（高出 ' + fmt(total - stableLevel) + '）'
       : '⚠ 今日可動用現金低於穩健水位（差 ' + fmt(stableLevel - total) + '）';
+  }
+
+  function renderCashHistoryChart() {
+    var svg = document.getElementById('cash-history-chart');
+    var empty = document.getElementById('cash-history-empty');
+    var history = data.cash_history;
+
+    if (!history.length) {
+      svg.style.display = 'none';
+      empty.style.display = '';
+      return;
+    }
+    svg.style.display = '';
+    empty.style.display = 'none';
+
+    var stats = computeStats();
+    var stableLevel = Math.max(0, stats.stable_cash_level);
+
+    var viewW = 1200, viewH = 280;
+    var plotLeft = 90, plotRight = viewW - 20, plotTop = 20, plotBottom = viewH - 40;
+    var plotW = plotRight - plotLeft, plotH = plotBottom - plotTop;
+
+    var maxVal = history.reduce(function (m, h) { return Math.max(m, h.available_cash); }, 0);
+    var domainMax = Math.max(maxVal, stableLevel, 1) * 1.15;
+    var step = niceStep(domainMax, 5);
+    var axisMax = Math.ceil(domainMax / step) * step;
+
+    function yScale(v) { return plotBottom - (v / axisMax) * plotH; }
+
+    var parts = [];
+
+    for (var tick = 0; tick <= axisMax + 0.001; tick += step) {
+      var ty = yScale(tick);
+      parts.push('<line x1="' + plotLeft + '" y1="' + ty + '" x2="' + plotRight + '" y2="' + ty + '" stroke="var(--chart-grid)" stroke-width="1"></line>');
+      parts.push('<text x="' + (plotLeft - 8) + '" y="' + (ty + 4) + '" text-anchor="end" font-size="11" fill="var(--text-muted)">' + fmt(tick) + '</text>');
+    }
+    parts.push('<line x1="' + plotLeft + '" y1="' + plotBottom + '" x2="' + plotRight + '" y2="' + plotBottom + '" stroke="var(--chart-axis)" stroke-width="1"></line>');
+
+    var n = history.length;
+    var gap = 4;
+    var barW = Math.max(6, Math.min(28, plotW / n - gap));
+    var slot = plotW / n;
+    var labelEvery = Math.max(1, Math.ceil(n / 10));
+
+    history.forEach(function (h, i) {
+      var cx = plotLeft + slot * i + slot / 2;
+      var barX = cx - barW / 2;
+      var top = yScale(h.available_cash);
+      var h_px = plotBottom - top;
+      var isLast = i === n - 1;
+      var color = isLast ? 'var(--accent)' : categoricalColors()[0];
+      parts.push('<g>' +
+        '<title>' + esc(h.date) + '：' + fmt(h.available_cash) + '</title>' +
+        '<path d="' + roundedTopRectPath(barX, top, barW, h_px, 3) + '" fill="' + color + '"></path>' +
+      '</g>');
+      if (isLast) {
+        parts.push('<text x="' + cx + '" y="' + (top - 8) + '" text-anchor="middle" font-size="12" font-weight="600" fill="var(--text-primary)">' + fmt(h.available_cash) + '</text>');
+      }
+      if (i % labelEvery === 0 || isLast) {
+        parts.push('<text x="' + cx + '" y="' + (plotBottom + 18) + '" text-anchor="middle" font-size="10" fill="var(--text-secondary)">' + esc(h.date.slice(5)) + '</text>');
+      }
+    });
+
+    var thresholdY = yScale(stableLevel);
+    var thresholdLabelY = Math.max(plotTop + 10, thresholdY - 6);
+    parts.push('<line x1="' + plotLeft + '" y1="' + thresholdY + '" x2="' + plotRight + '" y2="' + thresholdY + '" stroke="var(--text-muted)" stroke-width="1.5" stroke-dasharray="5,4"></line>');
+    parts.push('<text x="' + (plotLeft + 4) + '" y="' + thresholdLabelY + '" text-anchor="start" font-size="10" font-weight="600" fill="var(--text-muted)">目前穩健水位</text>');
+
+    svg.setAttribute('viewBox', '0 0 ' + viewW + ' ' + viewH);
+    svg.innerHTML = parts.join('');
   }
 
   function renderRateScatterFilterButtons() {
@@ -1171,6 +1251,7 @@
     renderLoanTable();
     renderLoanPie();
     renderCashBarChart();
+    renderCashHistoryChart();
     renderRateScatter();
     renderForecast(today);
     renderPast(today);
