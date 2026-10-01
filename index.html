@@ -314,50 +314,20 @@
     <div class="empty" id="loan-pie-empty" style="display:none;">目前沒有借款資料。</div>
   </div>
 
-  <div class="cols-2">
-    <div class="card">
-      <h2>更新銀行存款</h2>
-      <div class="grid">
-        <div>
-          <label>銀行存款</label>
-          <input type="text" inputmode="numeric" class="thousands-input" id="cash-input">
-        </div>
-        <div>
-          <label>信託戶現金(不可動用)</label>
-          <input type="text" inputmode="numeric" class="thousands-input" id="trust-cash-input">
-        </div>
+  <div class="card">
+    <h2>更新銀行存款</h2>
+    <div class="grid">
+      <div>
+        <label>銀行存款</label>
+        <input type="text" inputmode="numeric" class="thousands-input" id="cash-input">
       </div>
-      <button type="button" id="btn-save-cash">儲存</button>
-      <div class="breakdown" id="cash-updated-at" style="margin-top: 8px;"></div>
+      <div>
+        <label>信託戶現金(不可動用)</label>
+        <input type="text" inputmode="numeric" class="thousands-input" id="trust-cash-input">
+      </div>
     </div>
-
-    <div class="card">
-      <h2>新增收支紀錄</h2>
-      <form id="add-tx-form">
-        <div class="grid">
-          <div>
-            <label>日期</label>
-            <input type="date" name="date" required>
-          </div>
-          <div>
-            <label>類型</label>
-            <select name="type">
-              <option value="income">收入</option>
-              <option value="expense">費用</option>
-            </select>
-          </div>
-          <div>
-            <label>金額</label>
-            <input type="text" inputmode="numeric" class="thousands-input" name="amount" required>
-          </div>
-          <div>
-            <label>備註</label>
-            <input type="text" name="note" placeholder="例如：客戶A貨款、辦公室租金">
-          </div>
-        </div>
-        <button type="submit">新增</button>
-      </form>
-    </div>
+    <button type="button" id="btn-save-cash">儲存</button>
+    <div class="breakdown" id="cash-updated-at" style="margin-top: 8px;"></div>
   </div>
 
   <div class="card">
@@ -1311,27 +1281,7 @@
     await loadAll();
   });
 
-  // --- 新增/刪除收支紀錄 ---
-  document.getElementById('add-tx-form').addEventListener('submit', async function (e) {
-    e.preventDefault();
-    var form = e.target;
-    var amount = parseAmount(form.amount.value);
-    if (amount > 0) {
-      var payload = {
-        date: form.date.value || todayISO(),
-        type: form.type.value,
-        amount: amount,
-        note: form.note.value.trim()
-      };
-      setSyncStatus('新增中...');
-      var { error } = await sb.from('transactions').insert(payload);
-      if (error) { alert('新增失敗：' + error.message); setSyncStatus('新增失敗'); return; }
-      form.reset();
-      form.date.value = todayISO();
-      await loadAll();
-    }
-  });
-
+  // --- 刪除收支紀錄 ---
   function bindDeleteTx(tbodyId) {
     document.getElementById(tbodyId).addEventListener('click', async function (e) {
       if (e.target.classList.contains('btn-delete-tx')) {
@@ -1371,7 +1321,6 @@
   function showApp() {
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('app').style.display = '';
-    document.querySelector('#add-tx-form [name=date]').value = todayISO();
     subscribeRealtime();
     startAutoRefresh();
     loadAll();
