@@ -541,7 +541,7 @@
     var cashRes = await sb.from('cash_settings').select('*').eq('id', 1).single();
     var loansRes = await sb.from('bank_loans').select('*').order('id');
     var txRes = await sb.from('transactions').select('*').order('id');
-    var historyRes = await sb.from('daily_cash_snapshots').select('snapshot_date, available_cash').order('snapshot_date', { ascending: false }).limit(60);
+    var historyRes = await sb.from('daily_cash_snapshots').select('snapshot_date, available_cash, stable_cash_level').order('snapshot_date', { ascending: false }).limit(60);
 
     if (cashRes.error || loansRes.error || txRes.error) {
       setSyncStatus('讀取失敗');
@@ -556,7 +556,11 @@
     data.bank_loans = loansRes.data.map(loanFromRow);
     data.transactions = txRes.data.map(txFromRow);
     data.cash_history = historyRes.error ? [] : historyRes.data.slice().reverse().map(function (row) {
-      return { date: row.snapshot_date, available_cash: Number(row.available_cash) };
+      return {
+        date: row.snapshot_date,
+        available_cash: Number(row.available_cash),
+        stable_cash_level: row.stable_cash_level == null ? null : Number(row.stable_cash_level)
+      };
     });
 
     data.bank_loans.forEach(function (loan) {
@@ -760,14 +764,17 @@
     empty.style.display = 'none';
 
     var stats = computeStats();
-    var stableLevel = Math.max(0, stats.stable_cash_level);
+    var currentStableLevel = Math.max(0, stats.stable_cash_level);
 
     var viewW = 1200, viewH = 280;
     var plotLeft = 90, plotRight = viewW - 20, plotTop = 20, plotBottom = viewH - 40;
     var plotW = plotRight - plotLeft, plotH = plotBottom - plotTop;
 
     var maxVal = history.reduce(function (m, h) { return Math.max(m, h.available_cash); }, 0);
-    var domainMax = Math.max(maxVal, stableLevel, 1) * 1.15;
+    var maxStable = history.reduce(function (m, h) {
+      return Math.max(m, h.stable_cash_level == null ? 0 : h.stable_cash_level);
+    }, currentStableLevel);
+    var domainMax = Math.max(maxVal, maxStable, 1) * 1.15;
     var step = niceStep(domainMax, 5);
     var axisMax = Math.ceil(domainMax / step) * step;
 
@@ -795,8 +802,9 @@
       var h_px = plotBottom - top;
       var isLast = i === n - 1;
       var color = isLast ? 'var(--accent)' : categoricalColors()[0];
+      var levelForTitle = h.stable_cash_level == null ? currentStableLevel : h.stable_cash_level;
       parts.push('<g>' +
-        '<title>' + esc(h.date) + '：' + fmt(h.available_cash) + '</title>' +
+        '<title>' + esc(h.date) + '：可動用現金 ' + fmt(h.available_cash) + '，穩健水位 ' + fmt(levelForTitle) + '</title>' +
         '<path d="' + roundedTopRectPath(barX, top, barW, h_px, 3) + '" fill="' + color + '"></path>' +
       '</g>');
       if (isLast) {
@@ -807,10 +815,15 @@
       }
     });
 
-    var thresholdY = yScale(stableLevel);
-    var thresholdLabelY = Math.max(plotTop + 10, thresholdY - 6);
-    parts.push('<line x1="' + plotLeft + '" y1="' + thresholdY + '" x2="' + plotRight + '" y2="' + thresholdY + '" stroke="var(--text-muted)" stroke-width="1.5" stroke-dasharray="5,4"></line>');
-    parts.push('<text x="' + (plotLeft + 4) + '" y="' + thresholdLabelY + '" text-anchor="start" font-size="10" font-weight="600" fill="var(--text-muted)">目前穩健水位</text>');
+    var stablePoints = history.map(function (h, i) {
+      var cx = plotLeft + slot * i + slot / 2;
+      var level = h.stable_cash_level == null ? currentStableLevel : h.stable_cash_level;
+      return cx + ',' + yScale(level);
+    });
+    parts.push('<polyline points="' + stablePoints.join(' ') + '" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-dasharray="5,4"></polyline>');
+    var firstStableY = yScale(history[0].stable_cash_level == null ? currentStableLevel : history[0].stable_cash_level);
+    var thresholdLabelY = Math.max(plotTop + 10, firstStableY - 6);
+    parts.push('<text x="' + (plotLeft + 4) + '" y="' + thresholdLabelY + '" text-anchor="start" font-size="10" font-weight="600" fill="var(--text-muted)">穩健水位</text>');
 
     svg.setAttribute('viewBox', '0 0 ' + viewW + ' ' + viewH);
     svg.innerHTML = parts.join('');
