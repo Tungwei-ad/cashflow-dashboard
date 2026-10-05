@@ -267,7 +267,9 @@
 
   <div class="card">
     <h2>每日可動用現金趨勢</h2>
-    <svg id="cash-history-chart" class="chart-svg" width="1200" height="280" viewBox="0 0 1200 280"></svg>
+    <div class="table-scroll">
+      <svg id="cash-history-chart" width="1200" height="300" viewBox="0 0 1200 300" style="display:block; height:auto;"></svg>
+    </div>
     <div class="empty" id="cash-history-empty" style="display:none;">目前沒有歷史紀錄，系統將於每天 23:59 自動記錄一筆。</div>
   </div>
 
@@ -766,9 +768,13 @@
     var stats = computeStats();
     var currentStableLevel = Math.max(0, stats.stable_cash_level);
 
-    var viewW = 1200, viewH = 280;
-    var plotLeft = 90, plotRight = viewW - 20, plotTop = 20, plotBottom = viewH - 40;
-    var plotW = plotRight - plotLeft, plotH = plotBottom - plotTop;
+    var n = history.length;
+    var slot = 100;
+    var viewH = 300;
+    var plotLeft = 90, plotTop = 36, plotBottom = viewH - 40;
+    var plotRight = plotLeft + n * slot;
+    var viewW = plotRight + 20;
+    var plotH = plotBottom - plotTop;
 
     var maxVal = history.reduce(function (m, h) { return Math.max(m, h.available_cash); }, 0);
     var maxStable = history.reduce(function (m, h) {
@@ -789,11 +795,7 @@
     }
     parts.push('<line x1="' + plotLeft + '" y1="' + plotBottom + '" x2="' + plotRight + '" y2="' + plotBottom + '" stroke="var(--chart-axis)" stroke-width="1"></line>');
 
-    var n = history.length;
-    var gap = 4;
-    var barW = Math.max(6, Math.min(28, plotW / n - gap));
-    var slot = plotW / n;
-    var labelEvery = Math.max(1, Math.ceil(n / 10));
+    var barW = 28;
 
     history.forEach(function (h, i) {
       var cx = plotLeft + slot * i + slot / 2;
@@ -807,12 +809,8 @@
         '<title>' + esc(h.date) + '：可動用現金 ' + fmt(h.available_cash) + '，穩健水位 ' + fmt(levelForTitle) + '</title>' +
         '<path d="' + roundedTopRectPath(barX, top, barW, h_px, 3) + '" fill="' + color + '"></path>' +
       '</g>');
-      if (isLast) {
-        parts.push('<text x="' + cx + '" y="' + (top - 8) + '" text-anchor="middle" font-size="12" font-weight="600" fill="var(--text-primary)">' + fmt(h.available_cash) + '</text>');
-      }
-      if (i % labelEvery === 0 || isLast) {
-        parts.push('<text x="' + cx + '" y="' + (plotBottom + 18) + '" text-anchor="middle" font-size="10" fill="var(--text-secondary)">' + esc(h.date.slice(5)) + '</text>');
-      }
+      parts.push('<text x="' + cx + '" y="' + (top - 8) + '" text-anchor="middle" font-size="11" font-weight="' + (isLast ? '700' : '600') + '" fill="var(--text-primary)">' + fmt(h.available_cash) + '</text>');
+      parts.push('<text x="' + cx + '" y="' + (plotBottom + 18) + '" text-anchor="middle" font-size="10" fill="var(--text-secondary)">' + esc(h.date.slice(5)) + '</text>');
     });
 
     var stablePoints = history.map(function (h, i) {
@@ -826,6 +824,8 @@
     parts.push('<text x="' + (plotLeft + 4) + '" y="' + thresholdLabelY + '" text-anchor="start" font-size="10" font-weight="600" fill="var(--text-muted)">穩健水位</text>');
 
     svg.setAttribute('viewBox', '0 0 ' + viewW + ' ' + viewH);
+    svg.setAttribute('width', viewW);
+    svg.setAttribute('height', viewH);
     svg.innerHTML = parts.join('');
   }
 
