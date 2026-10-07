@@ -267,6 +267,7 @@
 
   <div class="card">
     <h2>每日可動用現金趨勢</h2>
+    <div id="cash-history-legend" style="display:flex; gap:18px; flex-wrap:wrap; font-size:12.5px; margin-bottom:10px;"></div>
     <div class="table-scroll">
       <svg id="cash-history-chart" width="1200" height="300" viewBox="0 0 1200 300" style="display:block; height:auto;"></svg>
     </div>
@@ -543,7 +544,7 @@
     var cashRes = await sb.from('cash_settings').select('*').eq('id', 1).single();
     var loansRes = await sb.from('bank_loans').select('*').order('id');
     var txRes = await sb.from('transactions').select('*').order('id');
-    var historyRes = await sb.from('daily_cash_snapshots').select('snapshot_date, available_cash, stable_cash_level').order('snapshot_date', { ascending: false }).limit(60);
+    var historyRes = await sb.from('daily_cash_snapshots').select('snapshot_date, available_cash, stable_cash_level, usable_bank_deposit, available_credit').order('snapshot_date', { ascending: false }).limit(60);
 
     if (cashRes.error || loansRes.error || txRes.error) {
       setSyncStatus('讀取失敗');
@@ -561,7 +562,9 @@
       return {
         date: row.snapshot_date,
         available_cash: Number(row.available_cash),
-        stable_cash_level: row.stable_cash_level == null ? null : Number(row.stable_cash_level)
+        stable_cash_level: row.stable_cash_level == null ? null : Number(row.stable_cash_level),
+        usable_bank_deposit: row.usable_bank_deposit == null ? null : Number(row.usable_bank_deposit),
+        available_credit: row.available_credit == null ? null : Number(row.available_credit)
       };
     });
 
@@ -755,10 +758,12 @@
   function renderCashHistoryChart() {
     var svg = document.getElementById('cash-history-chart');
     var empty = document.getElementById('cash-history-empty');
+    var legend = document.getElementById('cash-history-legend');
     var history = data.cash_history;
 
     if (!history.length) {
       svg.style.display = 'none';
+      legend.innerHTML = '';
       empty.style.display = '';
       return;
     }
@@ -767,9 +772,18 @@
 
     var stats = computeStats();
     var currentStableLevel = Math.max(0, stats.stable_cash_level);
+    var COLOR_DEPOSIT = categoricalColors()[0];
+    var COLOR_CREDIT = categoricalColors()[1];
+    var COLOR_TOTAL = categoricalColors()[2];
+
+    legend.innerHTML =
+      '<div style="display:flex; align-items:center; gap:6px;"><span style="display:inline-block; width:11px; height:11px; border-radius:2px; background:' + COLOR_DEPOSIT + ';"></span>可動用銀行存款</div>' +
+      '<div style="display:flex; align-items:center; gap:6px;"><span style="display:inline-block; width:11px; height:11px; border-radius:2px; background:' + COLOR_CREDIT + ';"></span>銀行可動撥餘額(土融及不動產融資)</div>' +
+      '<div style="display:flex; align-items:center; gap:6px;"><span style="display:inline-block; width:11px; height:11px; border-radius:2px; background:' + COLOR_TOTAL + ';"></span>今日可動用現金（合計）</div>' +
+      '<div style="display:flex; align-items:center; gap:6px;"><span style="display:inline-block; width:11px; border-top:2px dashed var(--text-muted);"></span>穩健水位</div>';
 
     var n = history.length;
-    var slot = 100;
+    var slot = 130;
     var viewH = 300;
     var plotLeft = 90, plotTop = 36, plotBottom = viewH - 40;
     var plotRight = plotLeft + n * slot;
@@ -795,21 +809,35 @@
     }
     parts.push('<line x1="' + plotLeft + '" y1="' + plotBottom + '" x2="' + plotRight + '" y2="' + plotBottom + '" stroke="var(--chart-axis)" stroke-width="1"></line>');
 
-    var barW = 28;
+    var barW = 24, barGap = 6;
+    var clusterW = barW * 3 + barGap * 2;
 
     history.forEach(function (h, i) {
       var cx = plotLeft + slot * i + slot / 2;
-      var barX = cx - barW / 2;
-      var top = yScale(h.available_cash);
-      var h_px = plotBottom - top;
+      var clusterLeft = cx - clusterW / 2;
       var isLast = i === n - 1;
-      var color = isLast ? 'var(--accent)' : categoricalColors()[0];
       var levelForTitle = h.stable_cash_level == null ? currentStableLevel : h.stable_cash_level;
-      parts.push('<g>' +
-        '<title>' + esc(h.date) + '：可動用現金 ' + fmt(h.available_cash) + '，穩健水位 ' + fmt(levelForTitle) + '</title>' +
-        '<path d="' + roundedTopRectPath(barX, top, barW, h_px, 3) + '" fill="' + color + '"></path>' +
-      '</g>');
-      parts.push('<text x="' + cx + '" y="' + (top - 8) + '" text-anchor="middle" font-size="11" font-weight="' + (isLast ? '700' : '600') + '" fill="var(--text-primary)">' + fmt(h.available_cash) + '</text>');
+
+      var bars = [
+        { value: h.usable_bank_deposit, color: COLOR_DEPOSIT, label: '可動用銀行存款' },
+        { value: h.available_credit, color: COLOR_CREDIT, label: '銀行可動撥餘額' },
+        { value: h.available_cash, color: COLOR_TOTAL, label: '可動用現金' }
+      ];
+
+      bars.forEach(function (bar, bi) {
+        if (bar.value == null) return;
+        var barX = clusterLeft + bi * (barW + barGap);
+        var top = yScale(bar.value);
+        var h_px = plotBottom - top;
+        parts.push('<g>' +
+          '<title>' + esc(h.date) + ' ' + bar.label + '：' + fmt(bar.value) + '（穩健水位 ' + fmt(levelForTitle) + '）</title>' +
+          '<path d="' + roundedTopRectPath(barX, top, barW, h_px, 3) + '" fill="' + bar.color + '"></path>' +
+        '</g>');
+        if (bi === 2) {
+          parts.push('<text x="' + (barX + barW / 2) + '" y="' + (top - 8) + '" text-anchor="middle" font-size="11" font-weight="' + (isLast ? '700' : '600') + '" fill="var(--text-primary)">' + fmt(bar.value) + '</text>');
+        }
+      });
+
       parts.push('<text x="' + cx + '" y="' + (plotBottom + 18) + '" text-anchor="middle" font-size="10" fill="var(--text-secondary)">' + esc(h.date.slice(5)) + '</text>');
     });
 
