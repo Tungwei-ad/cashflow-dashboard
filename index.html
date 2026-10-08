@@ -783,7 +783,8 @@
       '<div style="display:flex; align-items:center; gap:6px;"><span style="display:inline-block; width:11px; border-top:2px dashed var(--text-muted);"></span>穩健水位</div>';
 
     var n = history.length;
-    var slot = 130;
+    var subSlot = 92;
+    var slot = subSlot * 3 + 30;
     var viewH = 300;
     var plotLeft = 90, plotTop = 36, plotBottom = viewH - 40;
     var plotRight = plotLeft + n * slot;
@@ -809,8 +810,8 @@
     }
     parts.push('<line x1="' + plotLeft + '" y1="' + plotBottom + '" x2="' + plotRight + '" y2="' + plotBottom + '" stroke="var(--chart-axis)" stroke-width="1"></line>');
 
-    var barW = 24, barGap = 6;
-    var clusterW = barW * 3 + barGap * 2;
+    var barW = 26;
+    var clusterW = subSlot * 3;
 
     history.forEach(function (h, i) {
       var cx = plotLeft + slot * i + slot / 2;
@@ -826,16 +827,16 @@
 
       bars.forEach(function (bar, bi) {
         if (bar.value == null) return;
-        var barX = clusterLeft + bi * (barW + barGap);
+        var subCenter = clusterLeft + subSlot * bi + subSlot / 2;
+        var barX = subCenter - barW / 2;
         var top = yScale(bar.value);
         var h_px = plotBottom - top;
         parts.push('<g>' +
           '<title>' + esc(h.date) + ' ' + bar.label + '：' + fmt(bar.value) + '（穩健水位 ' + fmt(levelForTitle) + '）</title>' +
           '<path d="' + roundedTopRectPath(barX, top, barW, h_px, 3) + '" fill="' + bar.color + '"></path>' +
         '</g>');
-        if (bi === 2) {
-          parts.push('<text x="' + (barX + barW / 2) + '" y="' + (top - 8) + '" text-anchor="middle" font-size="11" font-weight="' + (isLast ? '700' : '600') + '" fill="var(--text-primary)">' + fmt(bar.value) + '</text>');
-        }
+        var bold = bi === 2 && isLast;
+        parts.push('<text x="' + subCenter + '" y="' + (top - 8) + '" text-anchor="middle" font-size="10.5" font-weight="' + (bold ? '700' : '600') + '" fill="var(--text-primary)">' + fmt(bar.value) + '</text>');
       });
 
       parts.push('<text x="' + cx + '" y="' + (plotBottom + 18) + '" text-anchor="middle" font-size="10" fill="var(--text-secondary)">' + esc(h.date.slice(5)) + '</text>');
