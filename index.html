@@ -266,7 +266,17 @@
   </div>
 
   <div class="card">
-    <h2>每日可動用現金趨勢</h2>
+    <div class="toolbar" style="justify-content: space-between; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--border-light); flex-wrap: wrap; gap: 10px;">
+      <h2 style="margin-bottom: 0; border-bottom: none; padding-bottom: 0;">每日可動用現金趨勢</h2>
+      <div class="toolbar" style="flex-wrap: wrap;">
+        <span style="font-size: 12.5px; color: var(--text-secondary);">區間</span>
+        <input type="date" id="cash-history-range-start" style="width: auto; padding: 6px 8px;">
+        <span style="color: var(--text-muted);">～</span>
+        <input type="date" id="cash-history-range-end" style="width: auto; padding: 6px 8px;">
+        <button type="button" class="secondary" id="btn-cash-history-range-clear" style="margin-top: 0;">預設（近 7 天）</button>
+      </div>
+    </div>
+    <div class="breakdown" style="margin-bottom: 10px;">預設顯示今天往前推 7 天，不含週六、週日；也可自選日期區間（仍會略過週六、週日）。</div>
     <div id="cash-history-legend" style="display:flex; gap:18px; flex-wrap:wrap; font-size:12.5px; margin-bottom:10px;"></div>
     <div class="table-scroll">
       <svg id="cash-history-chart" width="1200" height="300" viewBox="0 0 1200 300" style="display:block; height:auto;"></svg>
@@ -450,6 +460,8 @@
   var knownBanks = new Set();
   var scatterBankFilter = '__all__';
   var scatterSelectedLoanId = null;
+  var cashHistoryRangeStart = null;
+  var cashHistoryRangeEnd = null;
 
   // --- 主題（深色/淺色） ---
   function isDarkMode() { return document.documentElement.getAttribute('data-theme') === 'dark'; }
@@ -499,6 +511,17 @@
     return y + '-' + m + '-' + day;
   }
 
+  function addDaysISO(dateStr, delta) {
+    var d = new Date(dateStr + 'T00:00:00Z');
+    d.setUTCDate(d.getUTCDate() + delta);
+    return d.toISOString().slice(0, 10);
+  }
+
+  function isWeekendISO(dateStr) {
+    var day = new Date(dateStr + 'T00:00:00Z').getUTCDay();
+    return day === 0 || day === 6;
+  }
+
   function fmt(n) {
     return Math.round(n || 0).toLocaleString('en-US');
   }
@@ -544,7 +567,7 @@
     var cashRes = await sb.from('cash_settings').select('*').eq('id', 1).single();
     var loansRes = await sb.from('bank_loans').select('*').order('id');
     var txRes = await sb.from('transactions').select('*').order('id');
-    var historyRes = await sb.from('daily_cash_snapshots').select('snapshot_date, available_cash, stable_cash_level, usable_bank_deposit, available_credit').order('snapshot_date', { ascending: false }).limit(60);
+    var historyRes = await sb.from('daily_cash_snapshots').select('snapshot_date, available_cash, stable_cash_level, usable_bank_deposit, available_credit').order('snapshot_date', { ascending: false }).limit(400);
 
     if (cashRes.error || loansRes.error || txRes.error) {
       setSyncStatus('讀取失敗');
@@ -755,11 +778,21 @@
       : '⚠ 今日可動用現金低於穩健水位（差 ' + fmt(stableLevel - total) + '）';
   }
 
+  function getDisplayedCashHistory() {
+    var today = todayISO();
+    var rangeEnd = cashHistoryRangeEnd || today;
+    var rangeStart = cashHistoryRangeStart || addDaysISO(rangeEnd, -6);
+    if (rangeStart > rangeEnd) { var t = rangeStart; rangeStart = rangeEnd; rangeEnd = t; }
+    return data.cash_history.filter(function (h) {
+      return h.date >= rangeStart && h.date <= rangeEnd && !isWeekendISO(h.date);
+    });
+  }
+
   function renderCashHistoryChart() {
     var svg = document.getElementById('cash-history-chart');
     var empty = document.getElementById('cash-history-empty');
     var legend = document.getElementById('cash-history-legend');
-    var history = data.cash_history;
+    var history = getDisplayedCashHistory();
 
     if (!history.length) {
       svg.style.display = 'none';
@@ -857,6 +890,22 @@
     svg.setAttribute('height', viewH);
     svg.innerHTML = parts.join('');
   }
+
+  document.getElementById('cash-history-range-start').addEventListener('change', function (e) {
+    cashHistoryRangeStart = e.target.value || null;
+    renderCashHistoryChart();
+  });
+  document.getElementById('cash-history-range-end').addEventListener('change', function (e) {
+    cashHistoryRangeEnd = e.target.value || null;
+    renderCashHistoryChart();
+  });
+  document.getElementById('btn-cash-history-range-clear').addEventListener('click', function () {
+    cashHistoryRangeStart = null;
+    cashHistoryRangeEnd = null;
+    document.getElementById('cash-history-range-start').value = '';
+    document.getElementById('cash-history-range-end').value = '';
+    renderCashHistoryChart();
+  });
 
   function renderRateScatterFilterButtons() {
     var container = document.getElementById('scatter-bank-filter');
