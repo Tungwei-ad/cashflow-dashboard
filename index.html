@@ -142,6 +142,15 @@
   .toolbar button { margin-top: 0; }
   .chart-svg { max-width: 100%; height: auto; }
   .table-scroll { overflow-x: auto; }
+  .warn-banner { background: var(--warn-bg, #fff7e6); border: 1px solid var(--warn-border, #f0c36d); color: var(--warn-text, #8a5a00); border-radius: var(--radius-sm); padding: 10px 14px; font-size: 13px; margin-bottom: 18px; line-height: 1.6; }
+  :root { --warn-bg: #fff7e6; --warn-border: #f0c36d; --warn-text: #8a5a00; }
+  :root[data-theme="dark"] { --warn-bg: #3a2f10; --warn-border: #7a5c10; --warn-text: #e8b84b; }
+  .main-tabs { display: flex; gap: 6px; margin-bottom: 18px; border-bottom: 1px solid var(--border-light); }
+  .main-tab-btn { background: transparent; color: var(--text-secondary); border: none; border-bottom: 2px solid transparent; border-radius: 0; padding: 10px 6px; margin: 0 10px 0 0; font-weight: 700; font-size: 14.5px; }
+  .main-tab-btn:hover { background: transparent; color: var(--text-primary); }
+  .main-tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .main-tab-panel { display: none; }
+  .main-tab-panel.active { display: block; }
   @media (max-width: 900px) {
     .cols-2 { grid-template-columns: 1fr; }
   }
@@ -205,6 +214,13 @@
       <button type="button" class="secondary" id="btn-logout">登出</button>
     </div>
   </div>
+
+  <div class="main-tabs">
+    <button type="button" class="main-tab-btn active" data-main-tab="real">正式資料</button>
+    <button type="button" class="main-tab-btn" data-main-tab="sim">模擬金流（不寫回）</button>
+  </div>
+
+  <div class="main-tab-panel active" id="main-tab-real">
 
   <div class="stats-row">
     <div class="card stat-green">
@@ -447,6 +463,113 @@
     </div>
   </div>
 
+  </div>
+
+  <div class="main-tab-panel" id="main-tab-sim">
+    <div class="warn-banner">⚠ 此分頁僅為模擬試算：以目前實際資料為起點，您可以自由調整／新增／刪除銀行借款與存款數字看看對可動用額度與現金水位的影響。<strong>所有調整都只在您目前的瀏覽器中，不會寫回資料庫，也不會影響正式資料或其他人看到的畫面</strong>，重新整理或切換分頁後會視情況保留在本次瀏覽，但關閉分頁就會消失。</div>
+
+    <div class="toolbar" style="justify-content: space-between; margin-bottom: 16px;">
+      <div class="breakdown" style="margin-top:0; flex:1;">起始資料取自目前的正式資料；以下所有欄位都可自由調整做「假設情境」試算。</div>
+      <button type="button" class="secondary" id="btn-sim-reset">重置為目前實際資料</button>
+    </div>
+
+    <div class="stats-row">
+      <div class="card stat-green">
+        <h2>模擬可動用現金</h2>
+        <div class="balance-box"><div class="amount" id="sim-available-today">0</div></div>
+        <div class="breakdown">= 銀行存款 <span id="sim-breakdown-cash">0</span> － 信託戶現金 <span id="sim-breakdown-trust">0</span> + 銀行可動撥餘額 <span id="sim-breakdown-credit">0</span></div>
+      </div>
+      <div class="card stat-blue">
+        <h2>可動用銀行存款</h2>
+        <div class="balance-box"><div class="amount secondary" id="sim-usable-deposit">0</div></div>
+        <div class="breakdown">= 銀行存款 － 信託戶現金(不可動用)</div>
+      </div>
+      <div class="card stat-blue">
+        <h2>銀行可動撥餘額(土融及不動產融資)</h2>
+        <div class="balance-box"><div class="amount secondary" id="sim-bank-available">0</div></div>
+        <div class="breakdown">僅計入下方已勾選「計入」的借款 <span id="sim-bank-breakdown"></span></div>
+      </div>
+    </div>
+    <div class="stats-row">
+      <div class="card stat-amber">
+        <h2>總借款餘額</h2>
+        <div class="balance-box"><div class="amount secondary" id="sim-total-loan-balance">0</div></div>
+        <div class="breakdown">= Σ 各筆已動撥金額（不受「計入」勾選影響）</div>
+      </div>
+      <div class="card stat-amber">
+        <h2>每月預估利息支出</h2>
+        <div class="balance-box"><div class="amount secondary" id="sim-monthly-interest">0</div></div>
+        <div class="breakdown">= Σ（各筆已動撥金額 × 利率）/ 12（不受「計入」勾選影響）</div>
+      </div>
+    </div>
+
+    <div class="cols-2">
+      <div class="card">
+        <h2>模擬輸入：銀行存款 / 固定費用</h2>
+        <div class="grid">
+          <div><label>銀行存款</label><input type="text" inputmode="numeric" class="thousands-input" id="sim-cash-input"></div>
+          <div><label>信託戶現金(不可動用)</label><input type="text" inputmode="numeric" class="thousands-input" id="sim-trust-cash-input"></div>
+          <div><label>每月固定費用</label><input type="text" inputmode="numeric" class="thousands-input" id="sim-fixed-expense-input"></div>
+        </div>
+        <div class="breakdown" style="margin-top: 10px;">
+          公司穩健現金水位 = （每月固定費用 + 每月預估利息）× 6 × 1.1 = <strong id="sim-stable-level" style="color:var(--text-primary);">0</strong>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>可動用現金流組成 vs. 穩健現金水位</h2>
+        <div style="display:flex; gap:24px; align-items:center; justify-content:center; flex-wrap:wrap;">
+          <svg id="sim-cash-bar-chart" class="chart-svg" width="260" height="260" viewBox="0 0 260 260" style="flex-shrink:0;"></svg>
+          <div style="min-width:180px;">
+            <div id="sim-cash-bar-legend" style="font-size:12.5px;"></div>
+            <div id="sim-cash-bar-status" style="margin-top:12px; font-size:13px; font-weight:600;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="toolbar" style="justify-content: space-between; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--border-light);">
+        <h2 style="margin-bottom: 0; border-bottom: none; padding-bottom: 0;">模擬銀行借款（可直接調整／新增／刪除，不寫回資料庫）</h2>
+      </div>
+      <div class="table-scroll">
+        <table id="sim-loan-table" style="width:auto; min-width: 1100px;">
+          <thead>
+            <tr><th>計入</th><th>銀行</th><th>專案名稱</th><th>專案代碼</th><th>性質</th><th>資產性質</th><th>額度</th><th>已動撥</th><th>未動撥</th><th>利率 (%)</th><th></th></tr>
+          </thead>
+          <tbody id="sim-loan-tbody"></tbody>
+        </table>
+      </div>
+      <div class="empty" id="sim-loan-empty" style="display:none;">目前沒有模擬借款資料。</div>
+
+      <h2 style="margin-top: 22px;">新增模擬借款</h2>
+      <form id="sim-add-loan-form">
+        <div class="grid">
+          <div><label>銀行</label><input type="text" name="bank" placeholder="例如：台灣銀行"></div>
+          <div><label>專案名稱</label><input type="text" name="credit_name" placeholder="例如：內湖潭美案" required></div>
+          <div><label>專案代碼</label><input type="text" name="project_code" placeholder="例如：TP03"></div>
+          <div><label>性質</label><input type="text" name="nature" placeholder="例如：建融、土融"></div>
+          <div>
+            <label>資產性質</label>
+            <select name="asset_type">
+              <option value="">未分類</option>
+              <option value="出租型">出租型</option>
+              <option value="出售型">出售型</option>
+            </select>
+          </div>
+          <div><label>額度</label><input type="text" inputmode="numeric" class="thousands-input" name="limit" required></div>
+          <div><label>已動撥金額</label><input type="text" inputmode="numeric" class="thousands-input" name="drawn" value="0" required></div>
+          <div><label>利率 (%)</label><input type="number" step="0.0001" min="0" name="rate" value="0" required></div>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <input type="checkbox" name="included" checked style="width:auto;">
+            <label style="margin-bottom:0;">計入可動用現金</label>
+          </div>
+        </div>
+        <button type="submit">新增模擬借款</button>
+      </form>
+    </div>
+  </div>
+
 </div>
 
 <script>
@@ -502,6 +625,16 @@
   document.getElementById('btn-theme-toggle').addEventListener('click', toggleTheme);
   document.getElementById('btn-theme-toggle-login').addEventListener('click', toggleTheme);
   updateThemeToggleUI();
+
+  document.querySelectorAll('.main-tab-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      document.querySelectorAll('.main-tab-btn').forEach(function (b) { b.classList.remove('active'); });
+      document.querySelectorAll('.main-tab-panel').forEach(function (p) { p.classList.remove('active'); });
+      btn.classList.add('active');
+      document.getElementById('main-tab-' + btn.dataset.mainTab).classList.add('active');
+      if (btn.dataset.mainTab === 'sim' && !simInitialized) { resetSimFromReal(); }
+    });
+  });
 
   function todayISO() {
     var d = new Date();
@@ -638,13 +771,14 @@
   }
 
   // --- 統計計算 ---
-  function computeStats() {
-    var loans = data.bank_loans;
+  function computeStats(src) {
+    src = src || data;
+    var loans = src.bank_loans;
     var included = loans.filter(function (l) { return l.included !== false; });
     var total_limit = included.reduce(function (s, l) { return s + l.limit; }, 0);
     var total_drawn = included.reduce(function (s, l) { return s + l.drawn; }, 0);
     var total_available_credit = total_limit - total_drawn;
-    var usable_bank_deposit = data.cash_on_hand - data.trust_cash;
+    var usable_bank_deposit = src.cash_on_hand - src.trust_cash;
     var available_today = usable_bank_deposit + total_available_credit;
     var monthly_interest = loans.reduce(function (s, l) { return s + (l.drawn * l.rate / 100 / 12); }, 0);
     var rental_monthly_interest = loans.reduce(function (s, l) {
@@ -654,7 +788,7 @@
       return s + (l.asset_type === '出售型' ? l.drawn * l.rate / 100 / 12 : 0);
     }, 0);
     var total_loan_balance = loans.reduce(function (s, l) { return s + l.drawn; }, 0);
-    var stable_cash_level = (data.monthly_fixed_expense + monthly_interest) * 6 * 1.1;
+    var stable_cash_level = (src.monthly_fixed_expense + monthly_interest) * 6 * 1.1;
     return {
       total_limit: total_limit, total_drawn: total_drawn,
       total_available_credit: total_available_credit,
@@ -1323,6 +1457,181 @@
     document.getElementById('past-table').style.display = rows.length ? '' : 'none';
     document.getElementById('past-empty').style.display = rows.length ? 'none' : '';
     document.getElementById('past-tbody').innerHTML = rows.join('');
+  }
+
+  /* =========================================================
+     模擬金流分頁（純前端試算，不寫回資料庫）
+     ========================================================= */
+  var sim = { cash_on_hand: 0, trust_cash: 0, monthly_fixed_expense: 0, bank_loans: [] };
+  var simInitialized = false;
+  var simLoanIdSeq = -1;
+
+  function resetSimFromReal() {
+    sim.cash_on_hand = data.cash_on_hand;
+    sim.trust_cash = data.trust_cash;
+    sim.monthly_fixed_expense = data.monthly_fixed_expense;
+    sim.bank_loans = data.bank_loans.map(function (l) {
+      return { id: l.id, bank: l.bank, credit_name: l.credit_name, project_code: l.project_code, nature: l.nature,
+        limit: l.limit, drawn: l.drawn, rate: l.rate, included: l.included !== false, asset_type: l.asset_type };
+    });
+    simInitialized = true;
+    renderSim();
+  }
+
+  document.getElementById('btn-sim-reset').addEventListener('click', function () {
+    if (!confirm('確定要捨棄目前的模擬調整，重新套用目前的實際資料嗎？')) return;
+    resetSimFromReal();
+  });
+
+  function renderSimCashBarChart(stats) {
+    var svg = document.getElementById('sim-cash-bar-chart');
+    var legend = document.getElementById('sim-cash-bar-legend');
+    var statusEl = document.getElementById('sim-cash-bar-status');
+    var seg1 = Math.max(0, stats.usable_bank_deposit);
+    var seg2 = Math.max(0, stats.total_available_credit);
+    var total = seg1 + seg2;
+    var stableLevel = Math.max(0, stats.stable_cash_level);
+    var domainMax = Math.max(total, stableLevel, 1) * 1.15;
+    var step = niceStep(domainMax, 5);
+    var axisMax = Math.ceil(domainMax / step) * step;
+    var plotLeft = 88, plotRight = 200, plotTop = 16, plotBottom = 220;
+    var plotH = plotBottom - plotTop;
+    function yScale(v) { return plotBottom - (v / axisMax) * plotH; }
+    var parts = [];
+    for (var tick = 0; tick <= axisMax + 0.001; tick += step) {
+      var ty = yScale(tick);
+      parts.push('<line x1="' + plotLeft + '" y1="' + ty + '" x2="' + plotRight + '" y2="' + ty + '" stroke="var(--chart-grid)" stroke-width="1"></line>');
+      parts.push('<text x="' + (plotLeft - 6) + '" y="' + (ty + 3) + '" text-anchor="end" font-size="9" fill="var(--text-muted)">' + fmt(tick) + '</text>');
+    }
+    parts.push('<line x1="' + plotLeft + '" y1="' + plotBottom + '" x2="' + plotRight + '" y2="' + plotBottom + '" stroke="var(--chart-axis)" stroke-width="1"></line>');
+    var barW = 22, barX = (plotLeft + plotRight) / 2 - barW / 2, gap = 2;
+    var y1top = yScale(seg1), y2top = yScale(seg1 + seg2);
+    var COLOR_1 = categoricalColors()[0], COLOR_2 = categoricalColors()[1];
+    if (seg1 > 0) parts.push('<rect x="' + barX + '" y="' + y1top + '" width="' + barW + '" height="' + (plotBottom - y1top) + '" fill="' + COLOR_1 + '"></rect>');
+    if (seg2 > 0) {
+      var segTop = y2top, segBottom = y1top - (seg1 > 0 ? gap : 0), segH = Math.max(0, segBottom - segTop);
+      parts.push('<path d="' + roundedTopRectPath(barX, segTop, barW, segH, 3) + '" fill="' + COLOR_2 + '"></path>');
+    }
+    parts.push('<text x="' + (barX + barW / 2) + '" y="' + (y2top - 6) + '" text-anchor="middle" font-size="11" font-weight="600" fill="var(--text-primary)">' + fmt(total) + '</text>');
+    parts.push('<text x="' + (barX + barW / 2) + '" y="' + (plotBottom + 16) + '" text-anchor="middle" font-size="10" fill="var(--text-secondary)">模擬</text>');
+    var pass = total >= stableLevel;
+    var thresholdColor = pass ? 'var(--good)' : 'var(--critical)';
+    var thresholdY = yScale(stableLevel);
+    parts.push('<line x1="' + plotLeft + '" y1="' + thresholdY + '" x2="' + plotRight + '" y2="' + thresholdY + '" stroke="' + thresholdColor + '" stroke-width="2" stroke-dasharray="5,4"></line>');
+    svg.innerHTML = parts.join('');
+    legend.innerHTML =
+      '<div style="display:flex; align-items:center; gap:7px; padding:2px 0;"><span style="display:inline-block; width:11px; height:11px; border-radius:2px; background:' + COLOR_1 + ';"></span><span style="flex:1;">銀行存款(可動用)</span><span style="color:var(--text-muted);">' + fmt(seg1) + '</span></div>' +
+      '<div style="display:flex; align-items:center; gap:7px; padding:2px 0;"><span style="display:inline-block; width:11px; height:11px; border-radius:2px; background:' + COLOR_2 + ';"></span><span style="flex:1;">銀行可動撥餘額</span><span style="color:var(--text-muted);">' + fmt(seg2) + '</span></div>' +
+      '<div style="display:flex; align-items:center; gap:7px; padding:2px 0;"><span style="display:inline-block; width:11px; border-top:2px dashed ' + thresholdColor + ';"></span><span style="flex:1;">穩健現金水位</span><span style="color:var(--text-muted);">' + fmt(stableLevel) + '</span></div>';
+    statusEl.style.color = pass ? 'var(--success-text)' : 'var(--critical)';
+    statusEl.textContent = pass ? '✓ 模擬可動用現金高於穩健水位（高出 ' + fmt(total - stableLevel) + '）' : '⚠ 模擬可動用現金低於穩健水位（差 ' + fmt(stableLevel - total) + '）';
+  }
+
+  function renderSimLoanTable() {
+    var tbody = document.getElementById('sim-loan-tbody');
+    var loans = sim.bank_loans;
+    document.getElementById('sim-loan-table').style.display = loans.length ? '' : 'none';
+    document.getElementById('sim-loan-empty').style.display = loans.length ? 'none' : '';
+    tbody.innerHTML = loans.map(function (loan) {
+      return '<tr data-id="' + loan.id + '">' +
+        '<td class="checkbox-col"><input type="checkbox" class="sim-loan-included"' + (loan.included !== false ? ' checked' : '') + '></td>' +
+        '<td><input type="text" class="sim-loan-bank" value="' + esc(loan.bank) + '"></td>' +
+        '<td><input type="text" class="sim-loan-credit-name" value="' + esc(loan.credit_name) + '"></td>' +
+        '<td><input type="text" class="sim-loan-project-code" value="' + esc(loan.project_code) + '"></td>' +
+        '<td><input type="text" class="sim-loan-nature" value="' + esc(loan.nature) + '"></td>' +
+        '<td><select class="sim-loan-asset-type">' +
+          '<option value=""' + (!loan.asset_type ? ' selected' : '') + '>未分類</option>' +
+          '<option value="出租型"' + (loan.asset_type === '出租型' ? ' selected' : '') + '>出租型</option>' +
+          '<option value="出售型"' + (loan.asset_type === '出售型' ? ' selected' : '') + '>出售型</option>' +
+        '</select></td>' +
+        '<td><input type="text" inputmode="numeric" class="thousands-input sim-loan-limit" value="' + fmt(loan.limit) + '"></td>' +
+        '<td><input type="text" inputmode="numeric" class="thousands-input sim-loan-drawn" value="' + fmt(loan.drawn) + '"></td>' +
+        '<td>' + fmt(loan.limit - loan.drawn) + '</td>' +
+        '<td><input type="number" step="0.0001" class="sim-loan-rate" value="' + loan.rate + '" style="width:80px;"></td>' +
+        '<td><button type="button" class="btn-delete-sim-loan danger">刪除</button></td>' +
+      '</tr>';
+    }).join('');
+    if (loans.length) {
+      var total_limit_all = loans.reduce(function (s, l) { return s + l.limit; }, 0);
+      var total_drawn_all = loans.reduce(function (s, l) { return s + l.drawn; }, 0);
+      tbody.innerHTML += '<tr style="font-weight:bold; background:var(--surface-alt);">' +
+        '<td colspan="6" style="text-align:right;">小計</td>' +
+        '<td>' + fmt(total_limit_all) + '</td><td>' + fmt(total_drawn_all) + '</td><td>' + fmt(total_limit_all - total_drawn_all) + '</td><td></td><td></td></tr>';
+    }
+  }
+
+  function readSimLoanRowFromDom(tr) {
+    var id = Number(tr.dataset.id);
+    var loan = sim.bank_loans.find(function (l) { return l.id === id; });
+    if (!loan) return;
+    loan.bank = tr.querySelector('.sim-loan-bank').value.trim();
+    loan.credit_name = tr.querySelector('.sim-loan-credit-name').value.trim();
+    loan.project_code = tr.querySelector('.sim-loan-project-code').value.trim();
+    loan.nature = tr.querySelector('.sim-loan-nature').value.trim();
+    loan.asset_type = tr.querySelector('.sim-loan-asset-type').value;
+    loan.limit = parseAmount(tr.querySelector('.sim-loan-limit').value);
+    loan.drawn = parseAmount(tr.querySelector('.sim-loan-drawn').value);
+    loan.rate = parseFloat(tr.querySelector('.sim-loan-rate').value) || 0;
+    loan.included = tr.querySelector('.sim-loan-included').checked;
+  }
+
+  document.getElementById('sim-loan-tbody').addEventListener('change', function (e) {
+    var tr = e.target.closest('tr[data-id]');
+    if (!tr) return;
+    if (e.target.classList.contains('btn-delete-sim-loan')) return;
+    readSimLoanRowFromDom(tr);
+    renderSim(true);
+  });
+  document.getElementById('sim-loan-tbody').addEventListener('click', function (e) {
+    if (!e.target.classList.contains('btn-delete-sim-loan')) return;
+    var tr = e.target.closest('tr[data-id]');
+    var id = Number(tr.dataset.id);
+    sim.bank_loans = sim.bank_loans.filter(function (l) { return l.id !== id; });
+    renderSim();
+  });
+
+  document.getElementById('sim-add-loan-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var form = e.target;
+    sim.bank_loans.push({
+      id: simLoanIdSeq--, bank: form.bank.value.trim(), credit_name: form.credit_name.value.trim() || '模擬借款',
+      project_code: form.project_code.value.trim(), nature: form.nature.value.trim(), asset_type: form.asset_type.value,
+      limit: parseAmount(form.limit.value), drawn: parseAmount(form.drawn.value),
+      rate: parseFloat(form.rate.value) || 0, included: form.included.checked
+    });
+    form.reset();
+    renderSim();
+  });
+
+  ['sim-cash-input', 'sim-trust-cash-input', 'sim-fixed-expense-input'].forEach(function (id) {
+    document.getElementById(id).addEventListener('input', function () {
+      sim.cash_on_hand = parseAmount(document.getElementById('sim-cash-input').value);
+      sim.trust_cash = parseAmount(document.getElementById('sim-trust-cash-input').value);
+      sim.monthly_fixed_expense = parseAmount(document.getElementById('sim-fixed-expense-input').value);
+      renderSim(true);
+    });
+  });
+
+  function renderSim(keepInputFocus) {
+    if (!simInitialized) return;
+    var stats = computeStats(sim);
+    document.getElementById('sim-available-today').textContent = fmt(stats.available_today);
+    document.getElementById('sim-breakdown-cash').textContent = fmt(sim.cash_on_hand);
+    document.getElementById('sim-breakdown-trust').textContent = fmt(sim.trust_cash);
+    document.getElementById('sim-breakdown-credit').textContent = fmt(stats.total_available_credit);
+    document.getElementById('sim-usable-deposit').textContent = fmt(stats.usable_bank_deposit);
+    document.getElementById('sim-bank-available').textContent = fmt(stats.total_available_credit);
+    document.getElementById('sim-bank-breakdown').textContent = '（額度合計 ' + fmt(stats.total_limit) + ' － 已動撥合計 ' + fmt(stats.total_drawn) + '）';
+    document.getElementById('sim-total-loan-balance').textContent = fmt(stats.total_loan_balance);
+    document.getElementById('sim-monthly-interest').textContent = fmt(stats.monthly_interest);
+    document.getElementById('sim-stable-level').textContent = fmt(stats.stable_cash_level);
+    if (!keepInputFocus) {
+      document.getElementById('sim-cash-input').value = fmt(sim.cash_on_hand);
+      document.getElementById('sim-trust-cash-input').value = fmt(sim.trust_cash);
+      document.getElementById('sim-fixed-expense-input').value = fmt(sim.monthly_fixed_expense);
+      renderSimLoanTable();
+    }
+    renderSimCashBarChart(stats);
   }
 
   function render() {
