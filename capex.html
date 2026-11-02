@@ -304,6 +304,9 @@ select.inp { text-align: left; padding-right: 2px; }
 #loanSum .linkbtn { font-size: 13px; padding: 0; }
 #ltable th, #ltable td { padding-left: 4px; padding-right: 4px; }
 .loan-tools { flex-basis: 100%; display: flex; justify-content: space-between; align-items: flex-end; gap: 6px 16px; flex-wrap: wrap; }
+.simtoggle { display: flex; align-items: center; gap: 8px; font-size: 14px; padding: 10px 12px; background: var(--surface-2); border-radius: 8px; cursor: pointer; }
+.simtoggle input { width: auto; }
+.simbanner { display: flex; align-items: center; gap: 8px; padding: 10px 14px; margin-bottom: 14px; border-radius: 8px; background: color-mix(in srgb, var(--warn) 18%, var(--surface)); border: 1px solid var(--warn); font-size: 13.5px; }
 .rent-sum { font-size: 13px; color: var(--ink-2); }
 .rent-sum b { color: var(--ink); font-variant-numeric: tabular-nums; }
 .pill.warn { display: inline-flex; align-items: center; gap: 4px; color: var(--ink); }
@@ -405,10 +408,12 @@ select.inp { text-align: left; padding-right: 2px; }
     <button class="tab" type="button" role="tab" id="tabbtn-view" data-tab="view" aria-controls="tab-view" aria-selected="true">總覽</button>
     <button class="tab" type="button" role="tab" id="tabbtn-edit" data-tab="edit" aria-controls="tab-edit" aria-selected="false">資料填寫-CAPEX</button>
     <button class="tab" type="button" role="tab" id="tabbtn-rent" data-tab="rent" aria-controls="tab-rent" aria-selected="false">資料填寫-租金</button>
+    <button class="tab" type="button" role="tab" id="tabbtn-simloan" data-tab="simloan" aria-controls="tab-simloan" aria-selected="false">模擬貸款</button>
   </nav>
 
   <!-- ===================== 總覽 ===================== -->
   <div id="tab-view" role="tabpanel" aria-labelledby="tabbtn-view">
+    <div id="simLoanBanner" class="simbanner" hidden="">⚠ 現金水位計算目前使用「模擬貸款」分頁的資料，不是監控表的正式借款資料。</div>
     <div class="filters" role="toolbar" aria-label="篩選">
       <div class="fgroup">
         <span class="flabel">期間</span>
@@ -573,7 +578,28 @@ select.inp { text-align: left; padding-right: 2px; }
     </section>
   </div>
 
-  <!-- ===================== 資料填寫-可動用現金 ===================== -->
+  <!-- ===================== 模擬貸款 ===================== -->
+  <div id="tab-simloan" role="tabpanel" aria-labelledby="tabbtn-simloan" hidden="">
+    <section class="card">
+      <div class="card-h">
+        <div>
+          <h2>模擬貸款</h2>
+          <p class="sub">這裡的借款資料獨立於監控表正式資料，只有勾選下方「總覽採用模擬貸款」才會影響總覽的可動用現金與現金水位計算；不勾選則總覽照常使用監控表的正式銀行借款。</p>
+        </div>
+      </div>
+      <label class="simtoggle">
+        <input type="checkbox" id="simLoanActive">
+        <span>總覽的可動用現金計算採用下方模擬貸款（而非監控表正式資料）</span>
+      </label>
+      <div class="loan-tools" style="margin:10px 0;">
+        <button type="button" class="btn" id="copyRealLoansBtn">從正式資料複製一份</button>
+        <button type="button" class="btn" id="clearSimLoansBtn">清空模擬貸款</button>
+      </div>
+      <div class="tbl-wrap"><table class="ed" id="sltable"></table></div>
+      <button type="button" class="btn addrow" id="addSimLoanBtn">＋ 新增模擬借款</button>
+    </section>
+  </div>
+
   <div class="foot">
     <strong>資料說明</strong>
     <ol id="notes"></ol>
@@ -682,11 +708,22 @@ let META = { notes: [] };
 let projects = [];
 let rents = [];
 let cash = { settings: { deposit: 0, trust: 0, monthlyFixed: 0, asOf: '' }, loans: [] };
+let simLoans = [];
 
 const state = {
   tab: 'view', gran: 'year', unit: 'yi', colMode: 'project',
   sel: new Set(), expanded: new Set(), cumExclude: new Set(['2026 H1']),
+  useSimLoans: false,
 };
+const activeLoans = () => (state.useSimLoans ? simLoans : cash.loans);
+function normalizeSimLoan(l) {
+  l = l || {};
+  return {
+    id: String(l.id || newId()), bank: String(l.bank ?? ''), project: String(l.project ?? ''), code: String(l.code ?? ''),
+    kind: String(l.kind ?? ''), assetType: String(l.assetType ?? ''),
+    limit: amt(l.limit), drawn: amt(l.drawn), rate: amt(l.rate), counted: l.counted !== false,
+  };
+}
 
 function calc(p) {
   const budget = p.area * p.unitCost, landTotal = p.landArea * p.landPrice;
@@ -734,6 +771,32 @@ async function pushRents() {
   tasks.push(ids.length ? sb.from('capex_rents').delete().not('id', 'in', idList(ids)) : sb.from('capex_rents').delete().neq('id', '__none__'));
   return Promise.all(tasks);
 }
+async function pushSimLoans() {
+  const rows = simLoans.map((l, i) => ({
+    id: l.id, bank: l.bank, project: l.project, code: l.code, kind: l.kind, asset_type: l.assetType,
+    limit_amount: l.limit, drawn: l.drawn, rate: l.rate, counted: l.counted, sort_order: i,
+    updated_at: new Date().toISOString(),
+  }));
+  const ids = simLoans.map(l => l.id);
+  const tasks = [];
+  if (rows.length) tasks.push(sb.from('capex_sim_loans').upsert(rows));
+  tasks.push(ids.length ? sb.from('capex_sim_loans').delete().not('id', 'in', idList(ids)) : sb.from('capex_sim_loans').delete().neq('id', '__none__'));
+  return Promise.all(tasks);
+}
+let simLoanSaveTimer = null;
+function scheduleSimLoanSave() {
+  clearTimeout(simLoanSaveTimer);
+  setSaveStat('儲存中…');
+  simLoanSaveTimer = setTimeout(async () => {
+    try {
+      await pushSimLoans();
+      setSaveStat(`已儲存至資料庫 · ${hhmm(new Date())}`);
+    } catch (e) {
+      console.error(e);
+      setSaveStat('儲存失敗，請檢查網路連線後重試');
+    }
+  }, 500);
+}
 function scheduleSave() {
   clearTimeout(saveTimer);
   setSaveStat('儲存中…');
@@ -746,6 +809,12 @@ function scheduleSave() {
       setSaveStat('儲存失敗，請檢查網路連線後重試');
     }
   }, 500);
+}
+function download(blob, name) {
+  const a = h('a', { href: URL.createObjectURL(blob), download: name });
+  document.body.append(a);
+  a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
 }
 function exportCSV() {
   const q = v => { const t = String(v ?? ''); return /[",\r\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
@@ -780,14 +849,12 @@ function exportCSV() {
   }
   {
     const st = cash.settings, c = cashCalc();
-    lines.push([], ['可動用現金'], ['項目', '金額(元)'],
+    lines.push([], ['可動用現金（資料來源：' + (state.useSimLoans ? '模擬貸款' : '監控表正式資料') + '）'], ['項目', '金額(元)'],
       ['銀行存款', r0(st.deposit)], ['信託戶現金（不可動用）', r0(st.trust)], ['可動用存款', r0(c.usableDeposit)],
       ['未動撥額度（計入可動用）', r0(c.counted)], ['可動用現金', r0(c.available)], ['每月固定費用', r0(st.monthlyFixed)],
       ['可支撐月數', c.months == null ? '' : c.months.toFixed(1)], ['資料時間', st.asOf]);
-    if (c.sim.active) lines.push(['模擬後未動撥額度（計入）', r0(c.sim.counted)], ['模擬後可動用現金', r0(c.sim.available)],
-      ['模擬後可支撐月數', c.sim.months == null ? '' : c.sim.months.toFixed(1)]);
-    lines.push([], ['銀行借款明細'], ['銀行', '專案名稱', '專案代碼', '性質', '資產性質', '額度(元)', '已動撥(元)', '未動撥(元)', '利率(%)', '月利息(元)', '計入可動用現金', '模擬刪除', '模擬計入', '最後更新']);
-    for (const l of cash.loans) lines.push([l.bank, l.project, l.code, l.kind, l.assetType, r0(l.limit), r0(l.drawn), r0(l.limit - l.drawn), l.rate, r0(l.drawn * l.rate / 100 / 12), l.counted ? '是' : '否', l.simDel ? '是' : '', l.simAdd && !l.counted ? '是' : '', l.updatedAt]);
+    lines.push([], ['銀行借款明細'], ['銀行', '專案名稱', '專案代碼', '性質', '資產性質', '額度(元)', '已動撥(元)', '未動撥(元)', '利率(%)', '月利息(元)', '計入可動用現金']);
+    for (const l of activeLoans()) lines.push([l.bank, l.project, l.code, l.kind, l.assetType, r0(l.limit), r0(l.drawn), r0(l.limit - l.drawn), l.rate, r0(l.drawn * l.rate / 100 / 12), l.counted ? '是' : '否']);
   }
   download(new Blob(['﻿' + lines.map(r => r.map(q).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' }), `資本支出_${stampName(new Date())}.csv`);
 }
@@ -886,6 +953,7 @@ function setTab(t) {
   $('tab-view').hidden = t !== 'view';
   $('tab-edit').hidden = t !== 'edit';
   $('tab-rent').hidden = t !== 'rent';
+  $('tab-simloan').hidden = t !== 'simloan';
   hideTip();
   if (t === 'view') { renderColumns(); renderCumulative(); }
   try { history.replaceState(null, '', t === 'view' ? location.pathname + location.search : '#' + t); } catch (e) {}
@@ -1183,9 +1251,10 @@ function renderCumulative() {
   const start = cc.available, asOf = cash.settings.asOf;
   const monthlyBurden = cc.interest + cash.settings.monthlyFixed;
   const undated = rents.filter(r => r.monthly && rentCalc(r).months == null).length;
-  $('levelSub').textContent = `單位：億元 · 現金水位 = 期初可動用現金 ${fmt2(start)} 億${asOf ? `（${asOf.slice(0, 10)}）` : ''} + 累積（租金收入 − 利息支出 − 固定費用）；不含資本支出${excludedText()}`;
+  $('levelSub').textContent = `單位：億元 · 現金水位 = 期初可動用現金 ${fmt2(start)} 億${asOf ? `（${asOf.slice(0, 10)}）` : ''} + 累積（租金收入 − 利息支出 − 固定費用）；不含資本支出 · 借款資料來源：${state.useSimLoans ? '模擬貸款' : '監控表正式資料'}${excludedText()}`;
   $('levelNote').textContent = '自有資金累積依上方案件篩選；租金收入包含租金頁所有租約'
     + (undated ? `（${undated} 筆未填租賃期限，沒有計入）` : '') + '。';
+  $('simLoanBanner').hidden = !state.useSimLoans;
   const LV = 'var(--cash-level)', OW = 'var(--fund-own)';
   $('levelLegend').replaceChildren(
     h('span', { class: 'item' }, h('span', { class: 'lkey', style: `background:${LV}` }), '累積現金水位'),
@@ -1623,26 +1692,95 @@ function updateRentCalcs() {
 /* ---------- 可動用現金 editor ---------- */
 const nowStamp = () => { const d = new Date(); return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${hhmm(d)}`; };
 // `sim` applies the 模擬刪除 / 模擬計入 ticks on top of the real figures; the real ones never change.
+/* ---------- 模擬貸款 editor ---------- */
+function slNumInput(get, set, { digits = 0, width, placeholder = '0' } = {}) {
+  const inp = h('input', { class: 'inp', type: 'text', inputmode: 'decimal', style: width ? `width:${width}px` : null, placeholder });
+  const fmt = () => { const v = get(); inp.value = v ? v.toLocaleString('zh-TW', { maximumFractionDigits: digits }) : ''; };
+  inp.addEventListener('focus', () => { const v = get(); inp.value = v ? String(v) : ''; inp.select(); });
+  inp.addEventListener('input', () => {
+    const t = inp.value.replace(/[,\s]/g, '');
+    const v = t === '' ? 0 : Number(t);
+    if (!Number.isFinite(v) || v < 0) { inp.classList.add('bad'); return; }
+    inp.classList.remove('bad');
+    set(v);
+    scheduleSimLoanSave();
+  });
+  inp.addEventListener('blur', () => { inp.classList.remove('bad'); fmt(); });
+  fmt();
+  return inp;
+}
+function slTextInput(get, set, { width } = {}) {
+  const inp = h('input', { class: 'inp txt', type: 'text', style: width ? `width:${width}px` : null, value: get() });
+  inp.addEventListener('input', () => { set(inp.value); scheduleSimLoanSave(); });
+  return inp;
+}
+function renderSimLoanEditor() {
+  $('simLoanActive').checked = state.useSimLoans;
+  const thead = h('thead', {}, h('tr', {},
+    h('th', {}, '計入'), h('th', {}, '銀行'), h('th', {}, '專案名稱'), h('th', {}, '代碼'), h('th', {}, '性質'), h('th', {}, '資產性質'),
+    h('th', {}, '額度'), h('th', {}, '已動撥'), h('th', {}, '未動撥'), h('th', {}, '利率', h('small', {}, '%')), h('th', {})));
+  const tbody = h('tbody');
+  for (const l of simLoans) {
+    const unused = h('span', {}, fmtYuan(Math.max(0, l.limit - l.drawn)));
+    const cb = h('input', { type: 'checkbox', 'aria-label': `${l.project || l.bank} 計入可動用現金` });
+    cb.checked = l.counted;
+    cb.addEventListener('change', () => { l.counted = cb.checked; scheduleSimLoanSave(); });
+    const limitInp = slNumInput(() => l.limit, v => { l.limit = v; unused.textContent = fmtYuan(Math.max(0, l.limit - l.drawn)); }, { width: 110 });
+    const drawnInp = slNumInput(() => l.drawn, v => { l.drawn = v; unused.textContent = fmtYuan(Math.max(0, l.limit - l.drawn)); }, { width: 110 });
+    tbody.append(h('tr', {},
+      h('td', { class: 'simcell', style: 'text-align:center' }, cb),
+      h('td', {}, slTextInput(() => l.bank, v => { l.bank = v; }, { width: 90 })),
+      h('td', {}, slTextInput(() => l.project, v => { l.project = v; }, { width: 120 })),
+      h('td', {}, slTextInput(() => l.code, v => { l.code = v; }, { width: 70 })),
+      h('td', {}, slTextInput(() => l.kind, v => { l.kind = v; }, { width: 90 })),
+      h('td', {}, slTextInput(() => l.assetType, v => { l.assetType = v; }, { width: 70 })),
+      h('td', {}, limitInp), h('td', {}, drawnInp), h('td', {}, unused),
+      h('td', {}, slNumInput(() => l.rate, v => { l.rate = v; }, { digits: 4, width: 64 })),
+      h('td', {}, h('button', {
+        type: 'button', class: 'del', 'aria-label': `刪除 ${l.project || l.bank}`,
+        onclick: () => { simLoans = simLoans.filter(x => x !== l); renderSimLoanEditor(); scheduleSimLoanSave(); },
+      }, '刪除'))));
+  }
+  if (!simLoans.length) tbody.append(h('tr', {}, h('td', { colspan: 11, class: 'empty' }, '尚無模擬借款，請按「＋ 新增模擬借款」或「從正式資料複製一份」。')));
+  $('sltable').replaceChildren(thead, tbody);
+}
+$('simLoanActive').addEventListener('change', () => {
+  state.useSimLoans = $('simLoanActive').checked;
+  if (state.tab === 'view') { renderColumns(); renderCumulative(); }
+});
+$('copyRealLoansBtn').addEventListener('click', () => {
+  if (simLoans.length && !confirm('目前已有模擬借款資料，複製正式資料會覆蓋現有內容，確定嗎？')) return;
+  simLoans = cash.loans.map(l => normalizeSimLoan({ ...l, id: newId() }));
+  renderSimLoanEditor();
+  scheduleSimLoanSave();
+});
+$('clearSimLoansBtn').addEventListener('click', () => {
+  if (!simLoans.length) return;
+  if (!confirm('確定要清空所有模擬借款嗎？')) return;
+  simLoans = [];
+  renderSimLoanEditor();
+  scheduleSimLoanSave();
+});
+$('addSimLoanBtn').addEventListener('click', () => {
+  simLoans.push(normalizeSimLoan({ id: newId(), counted: true }));
+  renderSimLoanEditor();
+  scheduleSimLoanSave();
+});
+
 function cashCalc() {
   const st = cash.settings;
   const t = { limit: 0, drawn: 0, unused: 0, counted: 0, interest: 0, rateW: 0 };
-  const sm = { counted: 0, interest: 0, nDel: 0, nAdd: 0 };
-  for (const l of cash.loans) {
+  for (const l of activeLoans()) {
     const u = l.limit - l.drawn, intr = l.drawn * l.rate / 100 / 12;
     t.limit += l.limit; t.drawn += l.drawn; t.unused += u; t.interest += intr; t.rateW += l.drawn * l.rate;
     if (l.counted) t.counted += Math.max(0, u);
-    if (l.simDel) { sm.nDel++; continue; }
-    sm.interest += intr;
-    if (l.counted || l.simAdd) sm.counted += Math.max(0, u);
-    if (l.simAdd && !l.counted) sm.nAdd++;
   }
   const usableDeposit = st.deposit - st.trust;
   const months = v => (st.monthlyFixed > 0 ? v / st.monthlyFixed : null);
-  const available = usableDeposit + t.counted, simAvailable = usableDeposit + sm.counted;
+  const available = usableDeposit + t.counted;
   return {
     limit: t.limit, drawn: t.drawn, unused: t.unused, counted: t.counted, interest: t.interest,
     usableDeposit, available, avgRate: t.drawn ? t.rateW / t.drawn : 0, months: months(available),
-    sim: { ...sm, active: sm.nDel + sm.nAdd > 0, available: simAvailable, months: months(simAvailable) },
   };
 }
 /* ---------- boot ---------- */
@@ -1652,7 +1790,7 @@ function recalc() {
   scheduleSave();
 }
 function renderAll() {
-  renderChips(); renderProjectEditor(); renderScheduleEditor(); renderFundingEditor(); renderRentEditor(); recalc();
+  renderChips(); renderProjectEditor(); renderScheduleEditor(); renderFundingEditor(); renderRentEditor(); renderSimLoanEditor(); recalc();
 }
 $('addRentBtn').addEventListener('click', () => {
   rents.push(normalizeRent({}));
@@ -1710,14 +1848,15 @@ matchMedia('(prefers-color-scheme: dark)').addEventListener('change', syncThemeB
 
 /* ---------- data load from Supabase ---------- */
 async function fetchAll() {
-  const [projRes, rentRes, metaRes, cashRes, loansRes] = await Promise.all([
+  const [projRes, rentRes, metaRes, cashRes, loansRes, simLoanRes] = await Promise.all([
     sb.from('capex_projects').select('*').order('sort_order'),
     sb.from('capex_rents').select('*').order('id'),
     sb.from('capex_meta').select('*').eq('id', 1).single(),
     sb.from('cash_settings').select('*').eq('id', 1).single(),
     sb.from('bank_loans').select('*').order('id'),
+    sb.from('capex_sim_loans').select('*').order('sort_order'),
   ]);
-  const firstError = projRes.error || rentRes.error || cashRes.error || loansRes.error;
+  const firstError = projRes.error || rentRes.error || cashRes.error || loansRes.error || simLoanRes.error;
   if (firstError) throw firstError;
   const fetchedProjects = (projRes.data || []).map(r => ({
     id: r.id, name: r.name, status: r.status, type: r.type,
@@ -1743,7 +1882,11 @@ async function fetchAll() {
       updatedAt: l.updated_at ? new Date(l.updated_at).toLocaleString('zh-TW') : '',
     })),
   };
-  return { projects: fetchedProjects, rents: fetchedRents, meta: metaRow, cash: fetchedCash };
+  const fetchedSimLoans = (simLoanRes.data || []).map(l => ({
+    id: l.id, bank: l.bank, project: l.project, code: l.code || '', kind: l.kind, assetType: l.asset_type || '',
+    limit: Number(l.limit_amount) || 0, drawn: Number(l.drawn) || 0, rate: Number(l.rate) || 0, counted: l.counted !== false,
+  }));
+  return { projects: fetchedProjects, rents: fetchedRents, meta: metaRow, cash: fetchedCash, simLoans: fetchedSimLoans };
 }
 async function bootData() {
   const data = await fetchAll();
@@ -1752,6 +1895,7 @@ async function bootData() {
   projects = data.projects.map(normalize);
   rents = data.rents.map(normalizeRent);
   cash = normalizeCash(data.cash);
+  simLoans = data.simLoans.map(normalizeSimLoan);
   state.sel = new Set(projects.map(p => p.id));
   state.expanded = new Set(projects.filter(p => sum(p.shares) > 0).map(p => p.id));
 }
@@ -1776,7 +1920,7 @@ async function start() {
     return;
   }
   renderStatic(); syncThemeBtn(); renderAll();
-  if (['#edit', '#rent'].includes(location.hash)) setTab(location.hash.slice(1));
+  if (['#edit', '#rent', '#simloan'].includes(location.hash)) setTab(location.hash.slice(1));
   clearTimeout(saveTimer);
   setSaveStat('資料已從資料庫載入');
   let lastW = 0;
