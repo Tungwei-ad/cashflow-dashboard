@@ -652,6 +652,7 @@ function normalize(p) {
     landArea: Number(p.landArea) || 0, landPrice: Number(p.landPrice) || 0,
     area: Number(p.area) || 0, unitCost: Number(p.unitCost) || 0,
     loanRatio: p.loanRatio == null ? 0.6 : Number(p.loanRatio) || 0,
+    tungweiShare: p.tungweiShare == null ? 1 : Math.min(1, Math.max(0, Number(p.tungweiShare) || 0)),
     ci: Number.isInteger(p.ci) ? p.ci : 0,
     pct: arr(p.pct), landPct: arr(p.landPct), shares: arr(p.shares),
   };
@@ -689,12 +690,14 @@ const state = {
 
 function calc(p) {
   const budget = p.area * p.unitCost, landTotal = p.landArea * p.landPrice;
-  const works = p.pct.map(x => x * budget);
-  const land = p.landPct.map(x => x * landTotal);
-  const subtotal = works.map((w, i) => w + land[i] + p.shares[i]);
+  const share = p.tungweiShare;
+  const works = p.pct.map(x => x * budget * share);
+  const land = p.landPct.map(x => x * landTotal * share);
+  const ownShares = p.shares.map(v => v * share);
+  const subtotal = works.map((w, i) => w + land[i] + ownShares[i]);
   return {
-    budget, landTotal, works, land, subtotal, total: sum(subtotal),
-    worksSum: sum(works), landSum: sum(land), sharesSum: sum(p.shares),
+    budget, landTotal, works, land, ownShares, subtotal, total: sum(subtotal),
+    worksSum: sum(works), landSum: sum(land), sharesSum: sum(ownShares),
     pctSum: sum(p.pct), landPctSum: sum(p.landPct),
   };
 }
@@ -714,7 +717,7 @@ async function pushProjects() {
   const rows = projects.map(p => ({
     id: p.id, name: p.name, status: p.status, type: p.type,
     land_area: p.landArea, land_price: p.landPrice, area: p.area, unit_cost: p.unitCost,
-    loan_ratio: p.loanRatio, sort_order: p.ci, pct: p.pct, land_pct: p.landPct, shares: p.shares,
+    loan_ratio: p.loanRatio, tungwei_share: p.tungweiShare, sort_order: p.ci, pct: p.pct, land_pct: p.landPct, shares: p.shares,
     updated_at: new Date().toISOString(),
   }));
   const ids = projects.map(p => p.id);
@@ -749,8 +752,8 @@ function exportCSV() {
   const r0 = v => Math.round(v);
   const pl = PERIODS.map((_, i) => periodLabel(i));
   const S = projects.map(p => ({ p, c: calc(p) }));
-  const lines = [['案件', '狀態', '型態', '土地坪數', '土地單價(元/坪)', '土地總價(元)', '總樓地板面積(坪)', '造價單價(元/坪)', '總造價(元)', '銀行借款比率', '資本支出合計(元)']];
-  for (const { p, c } of S) lines.push([p.name, p.status, p.type, p.landArea, r0(p.landPrice), r0(c.landTotal), p.area, r0(p.unitCost), r0(c.budget), pct(p.loanRatio), r0(c.total)]);
+  const lines = [['案件', '狀態', '型態', '東煒比例', '土地坪數', '土地單價(元/坪)', '土地總價(元)', '總樓地板面積(坪)', '造價單價(元/坪)', '總造價(元)', '銀行借款比率', '資本支出合計(元，已依東煒比例調整)']];
+  for (const { p, c } of S) lines.push([p.name, p.status, p.type, pct(p.tungweiShare), p.landArea, r0(p.landPrice), r0(c.landTotal), p.area, r0(p.unitCost), r0(c.budget), pct(p.loanRatio), r0(c.total)]);
   lines.push([], ['案件', '項目', '合計', ...pl]);
   for (const { p, c } of S) {
     if (c.landPctSum) {
@@ -759,7 +762,7 @@ function exportCSV() {
     }
     lines.push([p.name, '工程款比例', pct(c.pctSum), ...p.pct.map(x => (x ? pct(x) : ''))]);
     lines.push([p.name, '工程款(元)', r0(c.worksSum), ...c.works.map(r0)]);
-    if (c.sharesSum) lines.push([p.name, '股款(元)', r0(c.sharesSum), ...p.shares.map(r0)]);
+    if (c.sharesSum) lines.push([p.name, '股款(元，已依東煒比例調整)', r0(c.sharesSum), ...c.ownShares.map(r0)]);
     lines.push([p.name, '小計(元)', r0(c.total), ...c.subtotal.map(r0)]);
     lines.push([p.name, `銀行借款(元) ${pct(p.loanRatio)}`, r0(c.total * p.loanRatio), ...c.subtotal.map(v => r0(v * p.loanRatio))]);
   }
@@ -1176,9 +1179,11 @@ function renderCumulative() {
   const host = $('levelchart');
   pickerInto($('levelPick'), true);
   const B = accBuckets(), S = view();
-  const start = cashCalc().available, asOf = cash.settings.asOf;
+  const cc = cashCalc();
+  const start = cc.available, asOf = cash.settings.asOf;
+  const monthlyBurden = cc.interest + cash.settings.monthlyFixed;
   const undated = rents.filter(r => r.monthly && rentCalc(r).months == null).length;
-  $('levelSub').textContent = `單位：億元 · 現金水位 = 期初可動用現金 ${fmt2(start)} 億${asOf ? `（${asOf.slice(0, 10)}）` : ''} + 累積租金收入；不含資本支出與固定費用${excludedText()}`;
+  $('levelSub').textContent = `單位：億元 · 現金水位 = 期初可動用現金 ${fmt2(start)} 億${asOf ? `（${asOf.slice(0, 10)}）` : ''} + 累積（租金收入 − 利息支出 − 固定費用）；不含資本支出${excludedText()}`;
   $('levelNote').textContent = '自有資金累積依上方案件篩選；租金收入包含租金頁所有租約'
     + (undated ? `（${undated} 筆未填租賃期限，沒有計入）` : '') + '。';
   const LV = 'var(--cash-level)', OW = 'var(--fund-own)';
@@ -1193,8 +1198,10 @@ function renderCumulative() {
   }
   const rentP = rentByPeriod();
   const rentB = B.map(b => sumIdx(rentP, b.idx));
+  const burdenB = B.map(b => monthlyBurden * b.idx.length * 6);
+  const netB = rentB.map((v, i) => v - burdenB[i]);
   const own = runSum(fundingByBucket(B, S).own);
-  const level = runSum(rentB).map(v => start + v);
+  const level = runSum(netB).map(v => start + v);
   const gap = level.map((v, i) => v - own[i]);
 
   const firstNeg = gap.findIndex(g => g < 0);
@@ -1216,6 +1223,8 @@ function renderCumulative() {
       'sep',
       { value: signed(gap[bi]), name: gap[bi] >= 0 ? '差額（足夠）' : '差額（不足）' },
       { value: fmt2(rentB[bi]), name: '當期租金收入', muted: true },
+      { value: '-' + fmt2(burdenB[bi]), name: '當期利息+固定費用', muted: true },
+      { value: fmt2(netB[bi]), name: '當期淨現金流', muted: true },
     ]],
   });
 
@@ -1225,6 +1234,8 @@ function renderCumulative() {
     h('thead', {}, h('tr', {}, h('th', {}, '億元'), ...B.map(b => h('th', {}, b.long + (b.idx.length < b.full ? '*' : ''))))),
     h('tbody', {},
       row('當期租金收入', rentB, td, 'soft'),
+      row('當期利息+固定費用', burdenB, v => h('td', {}, '-' + fmt2(v)), 'soft'),
+      row('當期淨現金流', netB, td, 'soft'),
       row('累積現金水位', level, td),
       row('自有資金累積', own, td),
       row('差額', gap, g => h('td', {}, g < 0 ? h('span', { class: 'pill warn' }, signed(g)) : signed(g)), 'tot')));
@@ -1241,10 +1252,12 @@ function renderProjectList() {
     const first = c.subtotal.findIndex(v => v > 0);
     const last = c.subtotal.length - 1 - [...c.subtotal].reverse().findIndex(v => v > 0);
     const parts = [first >= 0 ? `${periodLabel(first)} – ${periodLabel(last)}` : '尚未排入時程'];
-    if (c.landSum > 0) parts.push(`土地款 ${fmt2(c.landSum)}（土地總價 ${fmt2(c.landTotal)} × ${pct(c.landPctSum)}）`);
-    if (c.worksSum > 0) parts.push(`工程款 ${fmt2(c.worksSum)}（總造價 ${fmt2(c.budget)} × ${pct(c.pctSum)}）`);
-    if (c.sharesSum > 0) parts.push(`股款 ${fmt2(c.sharesSum)}`);
+    const shareTxt = p.tungweiShare < 1 ? ` × 東煒 ${pct(p.tungweiShare)}` : '';
+    if (c.landSum > 0) parts.push(`土地款 ${fmt2(c.landSum)}（土地總價 ${fmt2(c.landTotal)} × ${pct(c.landPctSum)}${shareTxt}）`);
+    if (c.worksSum > 0) parts.push(`工程款 ${fmt2(c.worksSum)}（總造價 ${fmt2(c.budget)} × ${pct(c.pctSum)}${shareTxt}）`);
+    if (c.sharesSum > 0) parts.push(`股款 ${fmt2(c.sharesSum)}${shareTxt}`);
     parts.push(`借款比率 ${pct(p.loanRatio)}`);
+    if (p.tungweiShare < 1) parts.push(`東煒比例 ${pct(p.tungweiShare)}`);
     return h('div', { class: 'prow' + (on ? '' : ' off') },
       h('div', { class: 'l1' },
         swatch(p.ci), h('span', { class: 'nm' }, disp(p.name)),
@@ -1294,7 +1307,7 @@ function renderDetail() {
   for (const { p, c } of S) {
     tbody.append(h('tr', { class: 'grp' }, h('td', { colspan: B.length + 2 },
       h('span', { class: 'g' }, swatch(p.ci), disp(p.name), p.status ? h('span', { class: 'pill' }, p.status) : null))));
-    if (c.sharesSum > 0) tbody.append(numRow('item', '股款', p.shares));
+    if (c.sharesSum > 0) tbody.append(numRow('item', '股款', c.ownShares));
     if (c.landSum > 0) tbody.append(numRow('item', '土地款', c.land, p.landPct));
     tbody.append(numRow('item', '工程款', c.works, p.pct));
     tbody.append(numRow('subt', '小計', c.subtotal));
@@ -1321,12 +1334,13 @@ function renderProjectEditor() {
   const L = { style: 'text-align:left' };
   const thead = h('thead', {},
     h('tr', {},
-      h('th', { colspan: 4 }, ''),
+      h('th', { colspan: 5 }, ''),
       h('th', { class: 'grp sep-l', colspan: 3 }, '土地'),
       h('th', { class: 'grp sep-l', colspan: 3 }, '營建'),
       h('th', { class: 'sep-l', colspan: 2 }, '')),
     h('tr', {},
       h('th', {}, ''), h('th', L, '案件名稱'), h('th', L, '狀態'), h('th', L, '型態'),
+      h('th', {}, '東煒比例', h('small', {}, '%')),
       h('th', { class: 'sep-l' }, '土地坪數', h('small', {}, '坪')),
       h('th', {}, '土地單價', h('small', {}, '元／坪')),
       h('th', {}, '土地總價', h('small', {}, '坪數 × 單價')),
@@ -1350,6 +1364,7 @@ function renderProjectEditor() {
       h('td', { style: 'min-width:112px' }, textInput(() => p.name, v => { p.name = v; }, { label: '案件名稱', placeholder: '案件名稱', onLive: () => { onNameLive(p); recalc(); } })),
       h('td', { style: 'min-width:120px' }, textInput(() => p.status, v => { p.status = v; }, { label: '狀態', placeholder: '例：已開工', onLive: recalc })),
       h('td', {}, typeSel),
+      h('td', {}, numInput(() => p.tungweiShare, v => { p.tungweiShare = Math.min(v, 1); }, { scale: 100, digits: 2, label: `${nm} 東煒比例（%）`, placeholder: '100', width: 64 })),
       h('td', { class: 'sep-l' }, numInput(() => p.landArea, v => { p.landArea = v; }, { digits: 2, label: `${nm} 土地坪數`, placeholder: '0', width: 86 })),
       h('td', {}, numInput(() => p.landPrice, v => { p.landPrice = v; }, { digits: 0, label: `${nm} 土地單價（元／坪）`, placeholder: '0', width: 86 })),
       h('td', { class: 'calc' }, r.landTotal),
@@ -1369,7 +1384,7 @@ function renderProjectEditor() {
       }, '刪除'))));
   }
   foot.pLand = h('b'); foot.pBudget = h('b'); foot.pTotal = h('b');
-  tbody.append(h('tr', { class: 'tot' }, h('td', { colspan: 4 }, `合計（全部 ${projects.length} 案）`),
+  tbody.append(h('tr', { class: 'tot' }, h('td', { colspan: 5 }, `合計（全部 ${projects.length} 案）`),
     h('td', { class: 'sep-l' }), h('td'), h('td', { class: 'calc' }, foot.pLand),
     h('td', { class: 'sep-l' }), h('td'), h('td', { class: 'calc' }, foot.pBudget),
     h('td', { class: 'calc sep-l' }, foot.pTotal), h('td')));
@@ -1672,7 +1687,7 @@ function renderStatic() {
   $('meta').hidden = true;
   $('notes').replaceChildren(
     h('li', { class: 'src' }, '初始資料來源：公司案件追蹤表（資本支出／案件總表）'),
-    h('li', {}, '計算方式：土地總價 = 土地坪數 × 土地單價；總造價 = 總樓地板面積 × 造價單價；各期土地款 = 土地總價 × 該期比例；各期工程款 = 總造價 × 該期比例；各期資本支出 = 土地款 + 工程款 + 股款；銀行借款 = 各案資本支出 × 該案借款比率。'),
+    h('li', {}, '計算方式：土地總價 = 土地坪數 × 土地單價；總造價 = 總樓地板面積 × 造價單價；各期土地款 = 土地總價 × 該期比例 × 東煒比例；各期工程款 = 總造價 × 該期比例 × 東煒比例；股款已依東煒比例調整；各期資本支出 = 土地款 + 工程款 + 股款；銀行借款 = 各案資本支出 × 該案借款比率。「東煒比例」預設 100%，用於非東煒獨資的合作案件，調整後會反映在總覽所有金額與現金水位計算中。'),
     ...(META.notes || []).map(t => h('li', {}, t)),
     h('li', {}, '修改會自動儲存到資料庫，登入後在任何電腦都看得到最新資料。'));
 }
@@ -1707,7 +1722,7 @@ async function fetchAll() {
   const fetchedProjects = (projRes.data || []).map(r => ({
     id: r.id, name: r.name, status: r.status, type: r.type,
     landArea: r.land_area, landPrice: r.land_price, area: r.area, unitCost: r.unit_cost,
-    loanRatio: r.loan_ratio, ci: r.sort_order, pct: r.pct, landPct: r.land_pct, shares: r.shares,
+    loanRatio: r.loan_ratio, tungweiShare: r.tungwei_share, ci: r.sort_order, pct: r.pct, landPct: r.land_pct, shares: r.shares,
   }));
   const fetchedRents = (rentRes.data || []).map(r => ({
     id: r.id, name: r.name, monthly: r.monthly, start: r.start_period, end: r.end_period, note: r.note,
