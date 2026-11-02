@@ -151,6 +151,13 @@
   .main-tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
   .main-tab-panel { display: none; }
   .main-tab-panel.active { display: block; }
+  .capex-table th, .capex-table td { text-align: right; white-space: nowrap; }
+  .capex-table th:first-child, .capex-table td:first-child,
+  .capex-table th:nth-child(2), .capex-table td:nth-child(2) { text-align: left; }
+  .capex-table input[type=text] { width: 100px; padding: 5px 6px; font-size: 12px; }
+  .capex-table tr.project-subtotal td { font-weight: 700; background: var(--surface-alt); }
+  .capex-table tr.annual-total td { font-weight: 700; background: var(--accent-soft); }
+  .capex-table tr.project-start td { border-top: 2px solid var(--border); }
   @media (max-width: 900px) {
     .cols-2 { grid-template-columns: 1fr; }
   }
@@ -567,6 +574,42 @@
         </div>
         <button type="submit">新增模擬借款</button>
       </form>
+    </div>
+
+    <div class="card">
+      <div class="toolbar" style="justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap;">
+        <h2 style="margin-bottom:0; border-bottom:none; padding-bottom:0;">資本支出資金需求（東煒案件，至2030年）</h2>
+        <div class="toolbar">
+          <button type="button" class="secondary" id="btn-capex-add-project">新增案件</button>
+          <button type="button" class="secondary" id="btn-capex-reset">還原原始資料</button>
+        </div>
+      </div>
+      <div class="breakdown" style="margin-bottom: 14px;">
+        資料來源：<code>公司案件追蹤20261102.xlsx</code>「資本支出」工作表，依各案「股款／土地／工程款」拆分至 2026H1～2030H2 各半年度；所有金額皆可直接修改，「小計」「年度小計」「銀行借款／自有資金」為自動加總，會即時更新，並只存在您的瀏覽器中（不寫回資料庫）。<br>
+        <strong>備註：</strong>原始 Excel 的「年度小計」公式少加了「善化」案；下方年度小計已自動修正為全部案件加總。
+      </div>
+
+      <div class="table-scroll" style="margin-bottom: 18px;">
+        <svg id="capex-trend-chart" width="1200" height="300" viewBox="0 0 1200 300" style="display:block; height:auto;"></svg>
+      </div>
+      <div id="capex-trend-legend" style="display:flex; gap:18px; flex-wrap:wrap; font-size:12.5px; margin-bottom:18px;"></div>
+
+      <div class="toolbar" style="justify-content: flex-end; margin-bottom: 10px;">
+        <label style="margin-bottom:0;">銀行借款比例</label>
+        <input type="number" id="capex-bank-ratio" min="0" max="1" step="0.05" style="width:80px; padding:6px 8px;">
+      </div>
+      <div class="table-scroll">
+        <table class="capex-table" id="capex-table" style="min-width: 1500px;">
+          <thead>
+            <tr>
+              <th>案件</th><th>項目</th>
+              <th>2026H1</th><th>2026H2</th><th>2027H1</th><th>2027H2</th><th>2028H1</th><th>2028H2</th>
+              <th>2029H1</th><th>2029H2</th><th>2030H1</th><th>2030H2</th><th>總計</th>
+            </tr>
+          </thead>
+          <tbody id="capex-tbody"></tbody>
+        </table>
+      </div>
     </div>
   </div>
 
@@ -1634,6 +1677,235 @@
     renderSimCashBarChart(stats);
   }
 
+  /* =========================================================
+     資本支出資金需求（模擬金流分頁內，純前端試算，不寫回資料庫）
+     ========================================================= */
+  var CAPEX_PERIODS = ['2026H1','2026H2','2027H1','2027H2','2028H1','2028H2','2029H1','2029H2','2030H1','2030H2'];
+  var CAPEX_STORAGE_KEY = 'cashflow_public_capex_v1';
+  var capex = null;
+  var capexSeedFromServer = null;
+
+  async function fetchCapexSeed() {
+    if (capexSeedFromServer) return capexSeedFromServer;
+    var res = await sb.from('capex_plan').select('data').eq('id', 1).single();
+    if (res.error || !res.data) {
+      console.error('讀取資本支出資料失敗：', res.error);
+      return { bankRatio: 0.6, projects: [] };
+    }
+    capexSeedFromServer = res.data.data;
+    return capexSeedFromServer;
+  }
+
+  function cloneCapexSeed() { return JSON.parse(JSON.stringify(capexSeedFromServer || { bankRatio: 0.6, projects: [] })); }
+
+  async function loadCapex() {
+    try {
+      var raw = localStorage.getItem(CAPEX_STORAGE_KEY);
+      if (raw) { capex = JSON.parse(raw); return; }
+    } catch (e) {}
+    await fetchCapexSeed();
+    capex = cloneCapexSeed();
+  }
+  function saveCapex() {
+    try { localStorage.setItem(CAPEX_STORAGE_KEY, JSON.stringify(capex)); } catch (e) {}
+  }
+
+  document.getElementById('btn-capex-reset').addEventListener('click', async function () {
+    if (!confirm('確定要還原成公司案件追蹤表（資本支出工作表）的原始數字嗎？目前所有手動調整都會遺失。')) return;
+    await fetchCapexSeed();
+    capex = cloneCapexSeed();
+    saveCapex();
+    renderCapex();
+  });
+
+  document.getElementById('btn-capex-add-project').addEventListener('click', function () {
+    var name = prompt('請輸入新案件名稱：');
+    if (!name) return;
+    capex.projects.push({ name: name, equity: new Array(10).fill(0), land: new Array(10).fill(0), construction: new Array(10).fill(0) });
+    saveCapex();
+    renderCapex();
+  });
+
+  document.getElementById('capex-bank-ratio').addEventListener('input', function (e) {
+    var v = parseFloat(e.target.value);
+    if (isNaN(v)) return;
+    capex.bankRatio = v;
+    saveCapex();
+    updateCapexDerivedCells();
+    renderCapexTrendChart();
+  });
+
+  function capexProjectTotals(project) {
+    return CAPEX_PERIODS.map(function (_, i) {
+      return (project.equity[i] || 0) + (project.land[i] || 0) + (project.construction[i] || 0);
+    });
+  }
+  function capexAnnualTotals() {
+    var totals = new Array(10).fill(0);
+    capex.projects.forEach(function (p) {
+      capexProjectTotals(p).forEach(function (v, i) { totals[i] += v; });
+    });
+    return totals;
+  }
+
+  function capexRowHtml(projectIdx, rowKey, rowLabel, values, isFirstRow) {
+    return '<tr' + (isFirstRow ? ' class="project-start"' : '') + '>' +
+      (rowKey === 'equity' ? '<td rowspan="4">' + '<input type="text" class="capex-project-name" data-project="' + projectIdx + '" value="' + esc(capex.projects[projectIdx].name) + '"></td>' : '') +
+      '<td>' + rowLabel + '</td>' +
+      values.map(function (v, i) {
+        return '<td><input type="text" inputmode="numeric" class="thousands-input capex-cell" data-project="' + projectIdx + '" data-row="' + rowKey + '" data-period="' + i + '" value="' + fmt(v) + '"></td>';
+      }).join('') +
+      '<td>' + fmt(values.reduce(function (s, v) { return s + v; }, 0)) + '</td>' +
+    '</tr>';
+  }
+
+  function capexDerivedCellsHtml(cls, values, total) {
+    return values.map(function (v, i) { return '<td class="' + cls + '" data-period="' + i + '">' + fmt(v) + '</td>'; }).join('') +
+      '<td class="' + cls + '" data-period="total">' + fmt(total) + '</td>';
+  }
+
+  function renderCapexTable() {
+    var tbody = document.getElementById('capex-tbody');
+    var html = '';
+    capex.projects.forEach(function (project, pi) {
+      var subtotal = capexProjectTotals(project);
+      html += capexRowHtml(pi, 'equity', '股款', project.equity, true);
+      html += capexRowHtml(pi, 'land', '土地', project.land, false);
+      html += capexRowHtml(pi, 'construction', '工程款', project.construction, false);
+      html += '<tr class="project-subtotal"><td></td><td>小計</td>' +
+        capexDerivedCellsHtml('capex-subtotal-cell proj-' + pi, subtotal, subtotal.reduce(function (s, v) { return s + v; }, 0)) +
+        '<td style="text-align:center;"><button type="button" class="danger btn-delete-capex-project" data-project="' + pi + '">刪除案件</button></td></tr>';
+    });
+    var annual = capexAnnualTotals();
+    var bank = annual.map(function (v) { return v * capex.bankRatio; });
+    var selfFund = annual.map(function (v, i) { return v - bank[i]; });
+    html +=
+      '<tr class="annual-total project-start"><td></td><td>年度小計（' + capex.projects.length + '案合計）</td>' + capexDerivedCellsHtml('capex-annual-cell', annual, annual.reduce(function (s, v) { return s + v; }, 0)) + '<td></td></tr>' +
+      '<tr><td></td><td>銀行借款（<span id="capex-bank-pct">' + (capex.bankRatio * 100).toFixed(0) + '</span>%）</td>' + capexDerivedCellsHtml('capex-bank-cell', bank, bank.reduce(function (s, v) { return s + v; }, 0)) + '<td></td></tr>' +
+      '<tr><td></td><td>自有資金（<span id="capex-self-pct">' + ((1 - capex.bankRatio) * 100).toFixed(0) + '</span>%）</td>' + capexDerivedCellsHtml('capex-self-cell', selfFund, selfFund.reduce(function (s, v) { return s + v; }, 0)) + '<td></td></tr>';
+    tbody.innerHTML = html;
+    document.getElementById('capex-bank-ratio').value = capex.bankRatio;
+  }
+
+  function updateCapexDerivedCells() {
+    capex.projects.forEach(function (project, pi) {
+      var subtotal = capexProjectTotals(project);
+      var total = subtotal.reduce(function (s, v) { return s + v; }, 0);
+      document.querySelectorAll('.capex-subtotal-cell.proj-' + pi).forEach(function (td) {
+        td.textContent = fmt(td.dataset.period === 'total' ? total : subtotal[Number(td.dataset.period)]);
+      });
+    });
+    var annual = capexAnnualTotals();
+    var bank = annual.map(function (v) { return v * capex.bankRatio; });
+    var selfFund = annual.map(function (v, i) { return v - bank[i]; });
+    var annualTotal = annual.reduce(function (s, v) { return s + v; }, 0);
+    var bankTotal = bank.reduce(function (s, v) { return s + v; }, 0);
+    var selfTotal = selfFund.reduce(function (s, v) { return s + v; }, 0);
+    document.querySelectorAll('.capex-annual-cell').forEach(function (td) {
+      td.textContent = fmt(td.dataset.period === 'total' ? annualTotal : annual[Number(td.dataset.period)]);
+    });
+    document.querySelectorAll('.capex-bank-cell').forEach(function (td) {
+      td.textContent = fmt(td.dataset.period === 'total' ? bankTotal : bank[Number(td.dataset.period)]);
+    });
+    document.querySelectorAll('.capex-self-cell').forEach(function (td) {
+      td.textContent = fmt(td.dataset.period === 'total' ? selfTotal : selfFund[Number(td.dataset.period)]);
+    });
+    var bankPct = document.getElementById('capex-bank-pct');
+    var selfPct = document.getElementById('capex-self-pct');
+    if (bankPct) bankPct.textContent = (capex.bankRatio * 100).toFixed(0);
+    if (selfPct) selfPct.textContent = ((1 - capex.bankRatio) * 100).toFixed(0);
+  }
+
+  document.getElementById('capex-table').addEventListener('input', function (e) {
+    if (e.target.classList.contains('capex-cell')) {
+      var pi = Number(e.target.dataset.project), row = e.target.dataset.row, period = Number(e.target.dataset.period);
+      capex.projects[pi][row][period] = parseAmount(e.target.value);
+      saveCapex();
+      updateCapexDerivedCells();
+      renderCapexTrendChart();
+    } else if (e.target.classList.contains('capex-project-name')) {
+      var pi2 = Number(e.target.dataset.project);
+      capex.projects[pi2].name = e.target.value;
+      saveCapex();
+    }
+  });
+  document.getElementById('capex-table').addEventListener('click', function (e) {
+    if (!e.target.classList.contains('btn-delete-capex-project')) return;
+    var pi = Number(e.target.dataset.project);
+    if (!confirm('確定要刪除「' + capex.projects[pi].name + '」這個案件嗎？')) return;
+    capex.projects.splice(pi, 1);
+    saveCapex();
+    renderCapex();
+  });
+
+  function renderCapexTrendChart() {
+    var svg = document.getElementById('capex-trend-chart');
+    var legend = document.getElementById('capex-trend-legend');
+    var annual = capexAnnualTotals();
+    var bank = annual.map(function (v) { return v * capex.bankRatio; });
+    var selfFund = annual.map(function (v, i) { return v - bank[i]; });
+    var COLOR_BANK = categoricalColors()[0], COLOR_SELF = categoricalColors()[1];
+
+    var n = CAPEX_PERIODS.length;
+    var barW = 22, barGap = 4;
+    var clusterW = barW * 2 + barGap;
+    var slot = clusterW + 46;
+    var viewH = 300;
+    var plotLeft = 100, plotTop = 86, plotBottom = viewH - 40;
+    var plotRight = plotLeft + n * slot;
+    var viewW = plotRight + 20;
+    var plotH = plotBottom - plotTop;
+
+    var maxVal = Math.max.apply(null, annual.concat([1]));
+    var domainMax = maxVal * 1.15;
+    var step = niceStep(domainMax, 5);
+    var axisMax = Math.ceil(domainMax / step) * step;
+    function yScale(v) { return plotBottom - (v / axisMax) * plotH; }
+
+    var parts = [];
+    for (var tick = 0; tick <= axisMax + 0.001; tick += step) {
+      var ty = yScale(tick);
+      parts.push('<line x1="' + plotLeft + '" y1="' + ty + '" x2="' + plotRight + '" y2="' + ty + '" stroke="var(--chart-grid)" stroke-width="1"></line>');
+      parts.push('<text x="' + (plotLeft - 8) + '" y="' + (ty + 4) + '" text-anchor="end" font-size="11" fill="var(--text-muted)">' + fmt(tick) + '</text>');
+    }
+    parts.push('<line x1="' + plotLeft + '" y1="' + plotBottom + '" x2="' + plotRight + '" y2="' + plotBottom + '" stroke="var(--chart-axis)" stroke-width="1"></line>');
+
+    CAPEX_PERIODS.forEach(function (label, i) {
+      var cx = plotLeft + slot * i + slot / 2;
+      var clusterLeft = cx - clusterW / 2;
+      [['bank', bank[i], COLOR_BANK], ['self', selfFund[i], COLOR_SELF]].forEach(function (entry, bi) {
+        var val = entry[1], color = entry[2];
+        var barX = clusterLeft + bi * (barW + barGap);
+        var top = yScale(val);
+        var h_px = plotBottom - top;
+        parts.push('<g><title>' + label + ' ' + (bi === 0 ? '銀行借款' : '自有資金') + '：' + fmt(val) + '</title>' +
+          '<path d="' + roundedTopRectPath(barX, top, barW, h_px, 3) + '" fill="' + color + '"></path></g>');
+        var labelY = top - 6;
+        parts.push('<text x="' + (barX + barW / 2) + '" y="' + labelY + '" text-anchor="start" font-size="10" font-weight="600" fill="var(--text-primary)" transform="rotate(-90 ' + (barX + barW / 2) + ' ' + labelY + ')">' + fmt(val) + '</text>');
+      });
+      parts.push('<text x="' + cx + '" y="' + (plotBottom + 18) + '" text-anchor="middle" font-size="10.5" fill="var(--text-secondary)">' + label + '</text>');
+    });
+
+    svg.setAttribute('viewBox', '0 0 ' + viewW + ' ' + viewH);
+    svg.setAttribute('width', viewW);
+    svg.setAttribute('height', viewH);
+    svg.innerHTML = parts.join('');
+
+    legend.innerHTML =
+      '<div style="display:flex; align-items:center; gap:6px;"><span style="display:inline-block; width:11px; height:11px; border-radius:2px; background:' + COLOR_BANK + ';"></span>銀行借款</div>' +
+      '<div style="display:flex; align-items:center; gap:6px;"><span style="display:inline-block; width:11px; height:11px; border-radius:2px; background:' + COLOR_SELF + ';"></span>自有資金</div>';
+  }
+
+  function renderCapex() {
+    renderCapexTable();
+    renderCapexTrendChart();
+  }
+
+  async function initCapex() {
+    await loadCapex();
+    renderCapex();
+  }
+
   function render() {
     var today = todayISO();
     document.getElementById('today-label').textContent = today;
@@ -1826,6 +2098,7 @@
     subscribeRealtime();
     startAutoRefresh();
     loadAll();
+    initCapex();
   }
 
   function showLogin(message) {
