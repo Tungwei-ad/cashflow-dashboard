@@ -408,6 +408,7 @@ select.inp { text-align: left; padding-right: 2px; }
     <button class="tab" type="button" role="tab" id="tabbtn-view" data-tab="view" aria-controls="tab-view" aria-selected="true">總覽</button>
     <button class="tab" type="button" role="tab" id="tabbtn-edit" data-tab="edit" aria-controls="tab-edit" aria-selected="false">資料填寫-CAPEX</button>
     <button class="tab" type="button" role="tab" id="tabbtn-rent" data-tab="rent" aria-controls="tab-rent" aria-selected="false">資料填寫-租金</button>
+    <button class="tab" type="button" role="tab" id="tabbtn-sale" data-tab="sale" aria-controls="tab-sale" aria-selected="false">資料填寫-銷售</button>
     <button class="tab" type="button" role="tab" id="tabbtn-simloan" data-tab="simloan" aria-controls="tab-simloan" aria-selected="false">模擬貸款</button>
   </nav>
 
@@ -578,6 +579,21 @@ select.inp { text-align: left; padding-right: 2px; }
     </section>
   </div>
 
+  <!-- ===================== 資料填寫-銷售 ===================== -->
+  <div id="tab-sale" role="tabpanel" aria-labelledby="tabbtn-sale" hidden="">
+    <section class="card">
+      <div class="card-h">
+        <div>
+          <h2>銷售資料</h2>
+          <p class="sub">填寫案場交屋時間、預計總銷金額與實際銷售金額；「計入當期淨現金流金額」會依交屋時間所在半年度，計入累積現金水位 · 金額單位：萬元</p>
+        </div>
+        <div class="rent-sum" id="saleSum"></div>
+      </div>
+      <div class="tbl-wrap"><table class="ed" id="saletable"></table></div>
+      <button type="button" class="btn addrow" id="addSaleBtn">＋ 新增銷售資料</button>
+    </section>
+  </div>
+
   <!-- ===================== 模擬貸款 ===================== -->
   <div id="tab-simloan" role="tabpanel" aria-labelledby="tabbtn-simloan" hidden="">
     <section class="card">
@@ -594,6 +610,7 @@ select.inp { text-align: left; padding-right: 2px; }
       <div class="loan-tools" style="margin:10px 0;">
         <button type="button" class="btn" id="copyRealLoansBtn">從正式資料複製一份</button>
         <button type="button" class="btn" id="clearSimLoansBtn">清空模擬貸款</button>
+        <div class="sortnote" id="simLoanSortNote"></div>
       </div>
       <div class="tbl-wrap"><table class="ed" id="sltable"></table></div>
       <button type="button" class="btn addrow" id="addSimLoanBtn">＋ 新增模擬借款</button>
@@ -689,6 +706,13 @@ function normalizeRent(r) {
     start: String(r.start ?? ''), end: String(r.end ?? ''), note: String(r.note ?? ''),
   };
 }
+function normalizeSale(x) {
+  x = x || {};
+  return {
+    id: String(x.id || newId()), project: String(x.project ?? ''), handover: String(x.handover ?? ''),
+    expectedTotal: amt(x.expectedTotal), actualAmount: amt(x.actualAmount), netCashAmount: amt(x.netCashAmount),
+  };
+}
 const amt = v => Math.max(0, Number(v) || 0);
 function normalizeCash(c) {
   c = c && typeof c === 'object' ? c : {};
@@ -707,6 +731,7 @@ function normalizeCash(c) {
 let META = { notes: [] };
 let projects = [];
 let rents = [];
+let sales = [];
 let cash = { settings: { deposit: 0, trust: 0, monthlyFixed: 0, asOf: '' }, loans: [] };
 let simLoans = [];
 
@@ -771,6 +796,18 @@ async function pushRents() {
   tasks.push(ids.length ? sb.from('capex_rents').delete().not('id', 'in', idList(ids)) : sb.from('capex_rents').delete().neq('id', '__none__'));
   return Promise.all(tasks);
 }
+async function pushSales() {
+  const rows = sales.map((x, i) => ({
+    id: x.id, project: x.project, handover_period: x.handover,
+    expected_total: x.expectedTotal, actual_amount: x.actualAmount, net_cash_amount: x.netCashAmount, sort_order: i,
+    updated_at: new Date().toISOString(),
+  }));
+  const ids = sales.map(x => x.id);
+  const tasks = [];
+  if (rows.length) tasks.push(sb.from('capex_sales').upsert(rows));
+  tasks.push(ids.length ? sb.from('capex_sales').delete().not('id', 'in', idList(ids)) : sb.from('capex_sales').delete().neq('id', '__none__'));
+  return Promise.all(tasks);
+}
 async function pushSimLoans() {
   const rows = simLoans.map((l, i) => ({
     id: l.id, bank: l.bank, project: l.project, code: l.code, kind: l.kind, asset_type: l.assetType,
@@ -802,7 +839,7 @@ function scheduleSave() {
   setSaveStat('儲存中…');
   saveTimer = setTimeout(async () => {
     try {
-      await Promise.all([pushProjects(), pushRents()]);
+      await Promise.all([pushProjects(), pushRents(), pushSales()]);
       setSaveStat(`已儲存至資料庫 · ${hhmm(new Date())}`);
     } catch (e) {
       console.error(e);
@@ -845,6 +882,13 @@ function exportCSV() {
     for (const r of rents) {
       const c = rentCalc(r);
       lines.push([r.name, r0(r.monthly), r.start, r.end, c.months ?? '', c.status, r0(c.annual), c.total ? r0(c.total) : '', r.note]);
+    }
+  }
+  if (sales.length) {
+    lines.push([], ['銷售資料'], ['案場', '交屋時間', '狀態', '預計總銷金額(元)', '實際銷售金額(元)', '計入當期淨現金流金額(元)']);
+    for (const x of sales) {
+      const c = saleCalc(x);
+      lines.push([x.project, x.handover, c.status, r0(x.expectedTotal), r0(x.actualAmount), r0(x.netCashAmount)]);
     }
   }
   {
@@ -953,6 +997,7 @@ function setTab(t) {
   $('tab-view').hidden = t !== 'view';
   $('tab-edit').hidden = t !== 'edit';
   $('tab-rent').hidden = t !== 'rent';
+  $('tab-sale').hidden = t !== 'sale';
   $('tab-simloan').hidden = t !== 'simloan';
   hideTip();
   if (t === 'view') { renderColumns(); renderCumulative(); }
@@ -1242,6 +1287,30 @@ function rentByPeriod() {
   return out;
 }
 
+/* ---------- sale editor ---------- */
+// Which half-year period (index into PERIODS) a 'YYYY-MM' handover date falls in, or null if unfilled/out of range.
+function periodIndexForMonth(v) {
+  const my = ymIndex(v);
+  if (my == null) return null;
+  const y = Math.floor(my / 12), mo = (my % 12) + 1;
+  const idx = PERIODS.findIndex(p => p.year === y && p.half === (mo <= 6 ? 'H1' : 'H2'));
+  return idx >= 0 ? idx : null;
+}
+function saleCalc(x) {
+  const idx = periodIndexForMonth(x.handover);
+  const status = !x.handover ? '未填交屋時間' : idx == null ? '超出目前年度範圍' : `計入 ${periodLabel(idx)}`;
+  return { idx, status };
+}
+// Sale cash flow per half-year period: each record's 計入當期淨現金流金額 lands entirely in its handover period.
+function saleByPeriod() {
+  const out = new Array(NP).fill(0);
+  for (const x of sales) {
+    const idx = periodIndexForMonth(x.handover);
+    if (idx != null) out[idx] += x.netCashAmount;
+  }
+  return out;
+}
+
 /* ---------- overview: 累積現金水位 ---------- */
 function renderCumulative() {
   const host = $('levelchart');
@@ -1251,9 +1320,11 @@ function renderCumulative() {
   const start = cc.available, asOf = cash.settings.asOf;
   const monthlyBurden = cc.interest + cash.settings.monthlyFixed;
   const undated = rents.filter(r => r.monthly && rentCalc(r).months == null).length;
-  $('levelSub').textContent = `單位：億元 · 現金水位 = 期初可動用現金 ${fmt2(start)} 億${asOf ? `（${asOf.slice(0, 10)}）` : ''} + 累積（租金收入 − 利息支出 − 固定費用）；不含資本支出 · 借款資料來源：${state.useSimLoans ? '模擬貸款' : '監控表正式資料'}${excludedText()}`;
+  const outOfRange = sales.filter(x => x.handover && saleCalc(x).idx == null).length;
+  $('levelSub').textContent = `單位：億元 · 現金水位 = 期初可動用現金 ${fmt2(start)} 億${asOf ? `（${asOf.slice(0, 10)}）` : ''} + 累積（租金收入 + 銷售認列現金流 − 利息支出 − 固定費用）；不含資本支出 · 借款資料來源：${state.useSimLoans ? '模擬貸款' : '監控表正式資料'}${excludedText()}`;
   $('levelNote').textContent = '自有資金累積依上方案件篩選；租金收入包含租金頁所有租約'
-    + (undated ? `（${undated} 筆未填租賃期限，沒有計入）` : '') + '。';
+    + (undated ? `（${undated} 筆未填租賃期限，沒有計入）` : '') + '；銷售認列現金流依銷售頁交屋時間計入當期'
+    + (outOfRange ? `（${outOfRange} 筆交屋時間超出目前年度範圍，沒有計入）` : '') + '。';
   $('simLoanBanner').hidden = !state.useSimLoans;
   const LV = 'var(--cash-level)', OW = 'var(--fund-own)';
   $('levelLegend').replaceChildren(
@@ -1266,9 +1337,11 @@ function renderCumulative() {
     return;
   }
   const rentP = rentByPeriod();
+  const saleP = saleByPeriod();
   const rentB = B.map(b => sumIdx(rentP, b.idx));
+  const saleB = B.map(b => sumIdx(saleP, b.idx));
   const burdenB = B.map(b => monthlyBurden * b.idx.length * 6);
-  const netB = rentB.map((v, i) => v - burdenB[i]);
+  const netB = rentB.map((v, i) => v - burdenB[i] + saleB[i]);
   const own = runSum(fundingByBucket(B, S).own);
   const level = runSum(netB).map(v => start + v);
   const gap = level.map((v, i) => v - own[i]);
@@ -1292,6 +1365,7 @@ function renderCumulative() {
       'sep',
       { value: signed(gap[bi]), name: gap[bi] >= 0 ? '差額（足夠）' : '差額（不足）' },
       { value: fmt2(rentB[bi]), name: '當期租金收入', muted: true },
+      ...(saleB[bi] ? [{ value: fmt2(saleB[bi]), name: '當期銷售認列現金流', muted: true }] : []),
       { value: '-' + fmt2(burdenB[bi]), name: '當期利息+固定費用', muted: true },
       { value: fmt2(netB[bi]), name: '當期淨現金流', muted: true },
     ]],
@@ -1613,9 +1687,9 @@ function rentCalc(r) {
 }
 const rentRefs = new Map();
 const rentFoot = {};
-function monthInput(get, set, label) {
+function monthInput(get, set, label, after) {
   const inp = h('input', { class: 'inp month', type: 'month', 'aria-label': label, placeholder: 'YYYY-MM', value: get() });
-  const on = () => { set(inp.value); updateRentCalcs(); scheduleSave(); };
+  const on = () => { set(inp.value); (after || scheduleSave)(); };
   inp.addEventListener('input', on);
   inp.addEventListener('change', on);
   return inp;
@@ -1646,8 +1720,8 @@ function renderRentEditor() {
     tbody.append(h('tr', {},
       h('td', { style: 'min-width:112px' }, name),
       h('td', {}, numInput(() => r.monthly, v => { r.monthly = v; }, { digits: 2, label: `${nm} 月租金（元）`, placeholder: '0', width: 116, after })),
-      h('td', {}, monthInput(() => r.start, v => { r.start = v; }, `${nm} 起租年月`)),
-      h('td', {}, monthInput(() => r.end, v => { r.end = v; }, `${nm} 到期年月`)),
+      h('td', {}, monthInput(() => r.start, v => { r.start = v; }, `${nm} 起租年月`, after)),
+      h('td', {}, monthInput(() => r.end, v => { r.end = v; }, `${nm} 到期年月`, after)),
       h('td', { class: 'calc' }, ref.term),
       h('td', {}, ref.status),
       h('td', { class: 'calc' }, ref.annual),
@@ -1689,6 +1763,69 @@ function updateRentCalcs() {
   $('rentSum').replaceChildren('租賃中 ', h('b', {}, String(nActive)), ' 件 · 目前月租金合計 ', h('b', {}, fmtYuan(activeMonthly)), ' 元');
 }
 
+/* ---------- sale editor ---------- */
+const saleRefs = new Map();
+const saleFoot = {};
+function renderSaleEditor() {
+  $('projNames').replaceChildren(...[...new Set(projects.map(p => p.name.trim()).filter(Boolean))].map(n => h('option', { value: n })));
+  const L = { style: 'text-align:left' };
+  const thead = h('thead', {}, h('tr', {},
+    h('th', L, '案場'),
+    h('th', L, '交屋時間'),
+    h('th', L, '狀態'),
+    h('th', {}, '預計總銷金額', h('small', {}, '萬元')),
+    h('th', {}, '實際銷售金額', h('small', {}, '萬元')),
+    h('th', {}, '計入當期淨現金流金額', h('small', {}, '萬元')),
+    h('th', {}, '')));
+  const tbody = h('tbody');
+  saleRefs.clear();
+  for (const x of sales) {
+    const ref = { status: h('span', { class: 'pill' }) };
+    saleRefs.set(x.id, ref);
+    const nm = x.project.trim() || '銷售資料';
+    const after = () => { updateSaleCalcs(); scheduleSave(); };
+    const name = h('input', { class: 'inp txt', type: 'text', list: 'projNames', 'aria-label': '案場', placeholder: '案場', value: x.project });
+    name.addEventListener('input', () => { x.project = name.value; scheduleSave(); });
+    tbody.append(h('tr', {},
+      h('td', { style: 'min-width:112px' }, name),
+      h('td', {}, monthInput(() => x.handover, v => { x.handover = v; }, `${nm} 交屋時間`, after)),
+      h('td', {}, ref.status),
+      h('td', {}, numInput(() => x.expectedTotal, v => { x.expectedTotal = v; }, { scale: 1e-4, digits: 2, cls: 'wan', label: `${nm} 預計總銷金額（萬元）`, placeholder: '0', width: 100, after })),
+      h('td', {}, numInput(() => x.actualAmount, v => { x.actualAmount = v; }, { scale: 1e-4, digits: 2, cls: 'wan', label: `${nm} 實際銷售金額（萬元）`, placeholder: '0', width: 100, after })),
+      h('td', {}, numInput(() => x.netCashAmount, v => { x.netCashAmount = v; }, { scale: 1e-4, digits: 2, cls: 'wan', label: `${nm} 計入當期淨現金流金額（萬元）`, placeholder: '0', width: 100, after })),
+      h('td', {}, h('button', {
+        type: 'button', class: 'del', 'aria-label': `刪除 ${nm}`,
+        onclick: () => {
+          if (!confirm(`確定要刪除「${x.project.trim() || '這筆銷售資料'}」嗎？`)) return;
+          sales = sales.filter(y => y !== x);
+          renderSaleEditor(); recalc();
+        },
+      }, '刪除'))));
+  }
+  if (!sales.length) tbody.append(h('tr', {}, h('td', { colspan: 7, class: 'empty' }, '尚無銷售資料，請按「＋ 新增銷售資料」。')));
+  saleFoot.label = h('td'); saleFoot.expected = h('b'); saleFoot.actual = h('b'); saleFoot.net = h('b');
+  tbody.append(h('tr', { class: 'tot' }, saleFoot.label, h('td'), h('td'),
+    h('td', { class: 'calc' }, saleFoot.expected), h('td', { class: 'calc' }, saleFoot.actual), h('td', { class: 'calc' }, saleFoot.net), h('td')));
+  $('saletable').replaceChildren(thead, tbody);
+  updateSaleCalcs();
+}
+function updateSaleCalcs() {
+  let eSum = 0, aSum = 0, nSum = 0, nCounted = 0;
+  for (const x of sales) {
+    const c = saleCalc(x), ref = saleRefs.get(x.id);
+    eSum += x.expectedTotal; aSum += x.actualAmount; nSum += x.netCashAmount;
+    if (c.idx != null) nCounted += x.netCashAmount;
+    if (!ref) continue;
+    ref.status.textContent = c.status;
+    ref.status.className = 'pill' + (x.handover && c.idx == null ? ' warn' : '');
+  }
+  saleFoot.label.textContent = `合計（${sales.length} 筆）`;
+  saleFoot.expected.textContent = eSum ? fmtWan(eSum) : '–';
+  saleFoot.actual.textContent = aSum ? fmtWan(aSum) : '–';
+  saleFoot.net.textContent = nSum ? fmtWan(nSum) : '–';
+  $('saleSum').replaceChildren('已計入現金流 ', h('b', {}, fmtWan(nCounted)), ' 萬元');
+}
+
 /* ---------- 可動用現金 editor ---------- */
 const nowStamp = () => { const d = new Date(); return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${hhmm(d)}`; };
 // `sim` applies the 模擬刪除 / 模擬計入 ticks on top of the real figures; the real ones never change.
@@ -1714,13 +1851,66 @@ function slTextInput(get, set, { width } = {}) {
   inp.addEventListener('input', () => { set(inp.value); scheduleSimLoanSave(); });
   return inp;
 }
+// Simulated-loan table columns, in display order; `get` gives the value to sort by.
+const SIMLOAN_COLS = [
+  { key: 'counted', label: '計入', get: l => (l.counted ? 1 : 0), center: true, words: { desc: '計入者在前', asc: '未計入者在前' } },
+  { key: 'bank', label: '銀行', text: true },
+  { key: 'project', label: '專案名稱', text: true },
+  { key: 'code', label: '代碼', text: true },
+  { key: 'kind', label: '性質', text: true },
+  { key: 'assetType', label: '資產性質', text: true },
+  { key: 'limit', label: '額度' },
+  { key: 'drawn', label: '已動撥' },
+  { key: 'unused', label: '未動撥', get: l => l.limit - l.drawn },
+  { key: 'rate', label: '利率', sub: '%' },
+];
+// Sorting only changes the view; the stored order (and what's saved) stays as entered. Remembered per browser.
+let simLoanSort = null;
+try { simLoanSort = JSON.parse(localStorage.getItem('capex-simloan-sort')); } catch (e) {}
+function sortedSimLoans() {
+  const col = simLoanSort && SIMLOAN_COLS.find(c => c.key === simLoanSort.key);
+  if (!col) return simLoans;
+  const get = col.get || (l => l[col.key]), dir = simLoanSort.dir === 'desc' ? -1 : 1;
+  return [...simLoans].sort((a, b) => {
+    const x = get(a), y = get(b);
+    if (!col.text) return dir * (x - y);
+    if (!x !== !y) return x ? -1 : 1;   // blanks always last
+    return dir * String(x).localeCompare(String(y), 'zh-Hant');
+  });
+}
+function setSimLoanSort(next) {
+  simLoanSort = next;
+  try { next ? localStorage.setItem('capex-simloan-sort', JSON.stringify(next)) : localStorage.removeItem('capex-simloan-sort'); } catch (e) {}
+  renderSimLoanEditor();
+}
+const clearSimLoanSort = () => setSimLoanSort(null);
+function cycleSimLoanSort(col) {
+  const first = col.text ? 'asc' : 'desc', second = first === 'asc' ? 'desc' : 'asc';
+  if (!simLoanSort || simLoanSort.key !== col.key) setSimLoanSort({ key: col.key, dir: first });
+  else if (simLoanSort.dir === first) setSimLoanSort({ key: col.key, dir: second });
+  else setSimLoanSort(null);
+}
+function simLoanHeader(col) {
+  const on = simLoanSort && simLoanSort.key === col.key;
+  return h('th', {
+    style: col.text ? 'text-align:left' : col.center ? 'text-align:center' : null,
+    'aria-sort': on ? (simLoanSort.dir === 'asc' ? 'ascending' : 'descending') : null,
+  },
+  h('button', { type: 'button', class: 'sortbtn' + (on ? ' on' : ''), title: '點一下排序', onclick: () => cycleSimLoanSort(col) },
+    col.label, h('span', { class: 'arrow', 'aria-hidden': 'true' }, on ? (simLoanSort.dir === 'asc' ? '▲' : '▼') : '↕')),
+  col.sub ? h('small', {}, col.sub) : null);
+}
 function renderSimLoanEditor() {
   $('simLoanActive').checked = state.useSimLoans;
-  const thead = h('thead', {}, h('tr', {},
-    h('th', {}, '計入'), h('th', {}, '銀行'), h('th', {}, '專案名稱'), h('th', {}, '代碼'), h('th', {}, '性質'), h('th', {}, '資產性質'),
-    h('th', {}, '額度'), h('th', {}, '已動撥'), h('th', {}, '未動撥'), h('th', {}, '利率', h('small', {}, '%')), h('th', {})));
+  const thead = h('thead', {}, h('tr', {}, ...SIMLOAN_COLS.map(simLoanHeader), h('th', {}, '')));
+  const sortCol = simLoanSort && SIMLOAN_COLS.find(c => c.key === simLoanSort.key);
+  $('simLoanSortNote').replaceChildren(...(sortCol
+    ? [sortCol.words ? `依「${sortCol.label}」排序（${sortCol.words[simLoanSort.dir]}）· `
+      : `依「${sortCol.label}」${sortCol.text ? (simLoanSort.dir === 'asc' ? '遞增' : '遞減') : (simLoanSort.dir === 'asc' ? '由小到大' : '由大到小')}排序 · `,
+      h('button', { type: 'button', class: 'linkbtn', onclick: clearSimLoanSort }, '恢復原始順序')]
+    : ['點欄位標題可排序']));
   const tbody = h('tbody');
-  for (const l of simLoans) {
+  for (const l of sortedSimLoans()) {
     const unused = h('span', {}, fmtYuan(Math.max(0, l.limit - l.drawn)));
     const cb = h('input', { type: 'checkbox', 'aria-label': `${l.project || l.bank} 計入可動用現金` });
     cb.checked = l.counted;
@@ -1790,12 +1980,18 @@ function recalc() {
   scheduleSave();
 }
 function renderAll() {
-  renderChips(); renderProjectEditor(); renderScheduleEditor(); renderFundingEditor(); renderRentEditor(); renderSimLoanEditor(); recalc();
+  renderChips(); renderProjectEditor(); renderScheduleEditor(); renderFundingEditor(); renderRentEditor(); renderSaleEditor(); renderSimLoanEditor(); recalc();
 }
 $('addRentBtn').addEventListener('click', () => {
   rents.push(normalizeRent({}));
   renderRentEditor(); scheduleSave();
   const inp = $('rtable').querySelector('tbody tr:nth-last-child(2) input');
+  if (inp) { inp.focus(); inp.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+});
+$('addSaleBtn').addEventListener('click', () => {
+  sales.push(normalizeSale({}));
+  renderSaleEditor(); scheduleSave();
+  const inp = $('saletable').querySelector('tbody tr:nth-last-child(2) input');
   if (inp) { inp.focus(); inp.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
 });
 $('addBtn').addEventListener('click', () => {
@@ -1848,15 +2044,16 @@ matchMedia('(prefers-color-scheme: dark)').addEventListener('change', syncThemeB
 
 /* ---------- data load from Supabase ---------- */
 async function fetchAll() {
-  const [projRes, rentRes, metaRes, cashRes, loansRes, simLoanRes] = await Promise.all([
+  const [projRes, rentRes, saleRes, metaRes, cashRes, loansRes, simLoanRes] = await Promise.all([
     sb.from('capex_projects').select('*').order('sort_order'),
     sb.from('capex_rents').select('*').order('id'),
+    sb.from('capex_sales').select('*').order('sort_order'),
     sb.from('capex_meta').select('*').eq('id', 1).single(),
     sb.from('cash_settings').select('*').eq('id', 1).single(),
     sb.from('bank_loans').select('*').order('id'),
     sb.from('capex_sim_loans').select('*').order('sort_order'),
   ]);
-  const firstError = projRes.error || rentRes.error || cashRes.error || loansRes.error || simLoanRes.error;
+  const firstError = projRes.error || rentRes.error || saleRes.error || cashRes.error || loansRes.error || simLoanRes.error;
   if (firstError) throw firstError;
   const fetchedProjects = (projRes.data || []).map(r => ({
     id: r.id, name: r.name, status: r.status, type: r.type,
@@ -1865,6 +2062,10 @@ async function fetchAll() {
   }));
   const fetchedRents = (rentRes.data || []).map(r => ({
     id: r.id, name: r.name, monthly: r.monthly, start: r.start_period, end: r.end_period, note: r.note,
+  }));
+  const fetchedSales = (saleRes.data || []).map(r => ({
+    id: r.id, project: r.project, handover: r.handover_period,
+    expectedTotal: r.expected_total, actualAmount: r.actual_amount, netCashAmount: r.net_cash_amount,
   }));
   const metaRow = metaRes.data || { years: [2026, 2027, 2028, 2029, 2030], notes: [] };
   const cs = cashRes.data || { cash_on_hand: 0, trust_cash: 0, monthly_fixed_expense: 0, updated_at: null };
@@ -1886,7 +2087,7 @@ async function fetchAll() {
     id: l.id, bank: l.bank, project: l.project, code: l.code || '', kind: l.kind, assetType: l.asset_type || '',
     limit: Number(l.limit_amount) || 0, drawn: Number(l.drawn) || 0, rate: Number(l.rate) || 0, counted: l.counted !== false,
   }));
-  return { projects: fetchedProjects, rents: fetchedRents, meta: metaRow, cash: fetchedCash, simLoans: fetchedSimLoans };
+  return { projects: fetchedProjects, rents: fetchedRents, sales: fetchedSales, meta: metaRow, cash: fetchedCash, simLoans: fetchedSimLoans };
 }
 async function bootData() {
   const data = await fetchAll();
@@ -1894,6 +2095,7 @@ async function bootData() {
   META = { notes: data.meta.notes || [] };
   projects = data.projects.map(normalize);
   rents = data.rents.map(normalizeRent);
+  sales = data.sales.map(normalizeSale);
   cash = normalizeCash(data.cash);
   simLoans = data.simLoans.map(normalizeSimLoan);
   state.sel = new Set(projects.map(p => p.id));
@@ -1920,7 +2122,7 @@ async function start() {
     return;
   }
   renderStatic(); syncThemeBtn(); renderAll();
-  if (['#edit', '#rent', '#simloan'].includes(location.hash)) setTab(location.hash.slice(1));
+  if (['#edit', '#rent', '#sale', '#simloan'].includes(location.hash)) setTab(location.hash.slice(1));
   clearTimeout(saveTimer);
   setSaveStat('資料已從資料庫載入');
   let lastW = 0;
