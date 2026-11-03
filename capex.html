@@ -710,11 +710,11 @@ function normalizeSale(x) {
   x = x || {};
   return {
     id: String(x.id || newId()), project: String(x.project ?? ''), handover: String(x.handover ?? ''),
-    expectedTotal: amt(x.expectedTotal), actualAmount: amt(x.actualAmount), loanAmount: amt(x.loanAmount),
+    expectedTotal: amt(x.expectedTotal), actualAmount: amt(x.actualAmount), landBuildingCost: amt(x.landBuildingCost),
     counted: x.counted !== false,
   };
 }
-const saleNetCash = x => x.actualAmount - x.loanAmount;
+const saleNetCash = x => (x.actualAmount - x.landBuildingCost) * 0.8;
 const amt = v => Math.max(0, Number(v) || 0);
 function normalizeCash(c) {
   c = c && typeof c === 'object' ? c : {};
@@ -801,7 +801,7 @@ async function pushRents() {
 async function pushSales() {
   const rows = sales.map((x, i) => ({
     id: x.id, project: x.project, handover_period: x.handover,
-    expected_total: x.expectedTotal, actual_amount: x.actualAmount, loan_amount: x.loanAmount, net_cash_amount: saleNetCash(x), counted: x.counted, sort_order: i,
+    expected_total: x.expectedTotal, actual_amount: x.actualAmount, land_building_cost: x.landBuildingCost, net_cash_amount: saleNetCash(x), counted: x.counted, sort_order: i,
     updated_at: new Date().toISOString(),
   }));
   const ids = sales.map(x => x.id);
@@ -887,10 +887,10 @@ function exportCSV() {
     }
   }
   if (sales.length) {
-    lines.push([], ['銷售資料'], ['案場', '交屋時間', '狀態', '預計總銷金額(元)', '實際銷售金額(元)', '貸款金額(元)', '計入當期淨現金流金額(元，=實際銷售金額-貸款金額)']);
+    lines.push([], ['銷售資料'], ['案場', '交屋時間', '狀態', '預計總銷金額(元)', '實際銷售金額(元)', '土地+建物成本(元)', '計入當期淨現金流金額(元，=(實際銷售金額-土地+建物成本)x80%)']);
     for (const x of sales) {
       const c = saleCalc(x);
-      lines.push([x.project, x.handover, c.status, r0(x.expectedTotal), r0(x.actualAmount), r0(x.loanAmount), r0(saleNetCash(x))]);
+      lines.push([x.project, x.handover, c.status, r0(x.expectedTotal), r0(x.actualAmount), r0(x.landBuildingCost), r0(saleNetCash(x))]);
     }
   }
   {
@@ -1780,8 +1780,8 @@ function renderSaleEditor() {
     h('th', L, '狀態'),
     h('th', {}, '預計總銷金額', h('small', {}, '萬元')),
     h('th', {}, '實際銷售金額', h('small', {}, '萬元')),
-    h('th', {}, '貸款金額', h('small', {}, '萬元')),
-    h('th', {}, '計入當期淨現金流金額', h('small', {}, '＝實際銷售金額－貸款金額')),
+    h('th', {}, '土地＋建物成本', h('small', {}, '萬元')),
+    h('th', {}, '計入當期淨現金流金額', h('small', {}, '＝(實際銷售金額－土地＋建物成本)×80%')),
     h('th', {}, '')));
   const tbody = h('tbody');
   saleRefs.clear();
@@ -1802,7 +1802,7 @@ function renderSaleEditor() {
       h('td', {}, ref.status),
       h('td', {}, numInput(() => x.expectedTotal, v => { x.expectedTotal = v; }, { scale: 1e-4, digits: 2, cls: 'wan', label: `${nm} 預計總銷金額（萬元）`, placeholder: '0', width: 100, after })),
       h('td', {}, numInput(() => x.actualAmount, v => { x.actualAmount = v; }, { scale: 1e-4, digits: 2, cls: 'wan', label: `${nm} 實際銷售金額（萬元）`, placeholder: '0', width: 100, after })),
-      h('td', {}, numInput(() => x.loanAmount, v => { x.loanAmount = v; }, { scale: 1e-4, digits: 2, cls: 'wan', label: `${nm} 貸款金額（萬元）`, placeholder: '0', width: 100, after })),
+      h('td', {}, numInput(() => x.landBuildingCost, v => { x.landBuildingCost = v; }, { scale: 1e-4, digits: 2, cls: 'wan', label: `${nm} 土地＋建物成本（萬元）`, placeholder: '0', width: 100, after })),
       h('td', { class: 'calc' }, ref.net),
       h('td', {}, h('button', {
         type: 'button', class: 'del', 'aria-label': `刪除 ${nm}`,
@@ -1814,9 +1814,9 @@ function renderSaleEditor() {
       }, '刪除'))));
   }
   if (!sales.length) tbody.append(h('tr', {}, h('td', { colspan: 9, class: 'empty' }, '尚無銷售資料，請按「＋ 新增銷售資料」。')));
-  saleFoot.label = h('td'); saleFoot.expected = h('b'); saleFoot.actual = h('b'); saleFoot.loan = h('b'); saleFoot.net = h('b');
+  saleFoot.label = h('td'); saleFoot.expected = h('b'); saleFoot.actual = h('b'); saleFoot.cost = h('b'); saleFoot.net = h('b');
   tbody.append(h('tr', { class: 'tot' }, h('td'), saleFoot.label, h('td'), h('td'),
-    h('td', { class: 'calc' }, saleFoot.expected), h('td', { class: 'calc' }, saleFoot.actual), h('td', { class: 'calc' }, saleFoot.loan), h('td', { class: 'calc' }, saleFoot.net), h('td')));
+    h('td', { class: 'calc' }, saleFoot.expected), h('td', { class: 'calc' }, saleFoot.actual), h('td', { class: 'calc' }, saleFoot.cost), h('td', { class: 'calc' }, saleFoot.net), h('td')));
   $('saletable').replaceChildren(thead, tbody);
   updateSaleCalcs();
 }
@@ -1824,7 +1824,7 @@ function updateSaleCalcs() {
   let eSum = 0, aSum = 0, lSum = 0, nSum = 0, nCounted = 0;
   for (const x of sales) {
     const c = saleCalc(x), ref = saleRefs.get(x.id), net = saleNetCash(x);
-    eSum += x.expectedTotal; aSum += x.actualAmount; lSum += x.loanAmount; nSum += net;
+    eSum += x.expectedTotal; aSum += x.actualAmount; lSum += x.landBuildingCost; nSum += net;
     if (c.active) nCounted += net;
     if (!ref) continue;
     ref.status.textContent = c.status;
@@ -1834,7 +1834,7 @@ function updateSaleCalcs() {
   saleFoot.label.textContent = `合計（${sales.length} 筆）`;
   saleFoot.expected.textContent = eSum ? fmtWan(eSum) : '–';
   saleFoot.actual.textContent = aSum ? fmtWan(aSum) : '–';
-  saleFoot.loan.textContent = lSum ? fmtWan(lSum) : '–';
+  saleFoot.cost.textContent = lSum ? fmtWan(lSum) : '–';
   saleFoot.net.textContent = nSum ? fmtWan(nSum) : '–';
   $('saleSum').replaceChildren('已計入現金流 ', h('b', {}, fmtWan(nCounted)), ' 萬元');
 }
@@ -2078,7 +2078,7 @@ async function fetchAll() {
   }));
   const fetchedSales = (saleRes.data || []).map(r => ({
     id: r.id, project: r.project, handover: r.handover_period,
-    expectedTotal: r.expected_total, actualAmount: r.actual_amount, loanAmount: r.loan_amount, counted: r.counted,
+    expectedTotal: r.expected_total, actualAmount: r.actual_amount, landBuildingCost: r.land_building_cost, counted: r.counted,
   }));
   const metaRow = metaRes.data || { years: [2026, 2027, 2028, 2029, 2030], notes: [] };
   const cs = cashRes.data || { cash_on_hand: 0, trust_cash: 0, monthly_fixed_expense: 0, updated_at: null };
