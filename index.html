@@ -138,6 +138,19 @@
   #loan-table .sticky-3 { left: 176px; width: 220px; }
   #loan-table .sticky-4 { left: 396px; width: 90px; }
   #loan-table .sticky-5 { left: 486px; width: 110px; box-shadow: 2px 0 4px var(--shadow); }
+  .sortbtn {
+    border: 0; background: none; padding: 0; margin: 0; font: inherit; font-weight: 700; font-size: 11.5px;
+    letter-spacing: 0.03em; text-transform: uppercase; color: var(--text-muted); cursor: pointer;
+    display: inline-flex; align-items: center; gap: 4px; white-space: normal; text-align: left;
+  }
+  .sortbtn:hover { background: none; color: var(--text-primary); }
+  .sortbtn.on { color: var(--text-primary); }
+  .sortbtn .sort-arrow { font-size: 9px; color: var(--text-muted); }
+  .sortbtn.on .sort-arrow { color: var(--text-primary); }
+  #loan-table .loan-note-row td { padding: 4px 8px 10px; border-bottom: 1.5px solid var(--border); background: var(--surface-alt); }
+  #loan-table .loan-note-wrap { display: flex; align-items: center; }
+  #loan-table .loan-note-row .loan-note { font-size: 12.5px; padding: 5px 8px; width: 100%; max-width: 640px; }
+  #loan-table .loan-note-label { color: var(--text-muted); font-size: 11.5px; margin-right: 8px; white-space: nowrap; }
   .toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
   .toolbar button { margin-top: 0; }
   .chart-svg { max-width: 100%; height: auto; }
@@ -296,6 +309,12 @@
         <div id="rate-scatter-legend" style="font-size: 13px;"></div>
         <div id="rate-scatter-detail" style="font-size: 13px; margin-top: 14px; padding: 10px 12px; background: var(--surface-alt); border-radius: 6px; display: none;"></div>
       </div>
+      <div style="min-width: 160px; max-width: 220px; padding-top: 0;">
+        <div style="font-size: 12px; color: var(--text-muted); font-weight: 600; margin-bottom: 8px; text-align: center;">借款性質分布（已動撥）</div>
+        <svg id="nature-pie-mini" class="chart-svg" width="140" height="140" viewBox="0 0 140 140" style="display: block; margin: 0 auto 10px;"></svg>
+        <div id="nature-pie-mini-legend" style="font-size: 12px;"></div>
+        <div class="empty" id="nature-pie-mini-empty" style="display:none; font-size: 12px; padding: 10px;">無資料</div>
+      </div>
     </div>
     <div class="empty" id="rate-scatter-empty" style="display:none;">目前沒有借款資料。</div>
   </div>
@@ -359,16 +378,22 @@
       </div>
     </div>
     <div class="breakdown" style="margin-bottom: 6px;">欄位都改好後，按「全部更新」一次儲存所有異動；「計入」勾選會即時自動儲存，不用另外按。</div>
+    <div id="loan-sort-note" style="font-size: 12px; color: var(--text-muted); text-align: right; margin-bottom: 6px;">點欄位標題可排序</div>
     <div style="overflow-x: auto;">
       <table id="loan-table" style="display:none; width: auto; min-width: 1230px;">
         <thead>
           <tr>
-            <th class="sticky-col sticky-1">可否隨時<br>動撥</th>
-            <th class="sticky-col sticky-2">銀行</th>
-            <th class="sticky-col sticky-3">專案名稱</th>
-            <th class="sticky-col sticky-4">專案代碼</th>
-            <th class="sticky-col sticky-5">性質</th>
-            <th>資產性質</th><th>額度</th><th>已動撥</th><th>未動撥</th><th>利率 (%)</th><th></th>
+            <th class="sticky-col sticky-1"><button type="button" class="sortbtn" data-sort-key="included">可否隨時動撥<span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+            <th class="sticky-col sticky-2"><button type="button" class="sortbtn" data-sort-key="bank">銀行<span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+            <th class="sticky-col sticky-3"><button type="button" class="sortbtn" data-sort-key="credit_name">專案名稱<span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+            <th class="sticky-col sticky-4"><button type="button" class="sortbtn" data-sort-key="project_code">專案代碼<span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+            <th class="sticky-col sticky-5"><button type="button" class="sortbtn" data-sort-key="nature">性質<span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+            <th><button type="button" class="sortbtn" data-sort-key="asset_type">資產性質<span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+            <th><button type="button" class="sortbtn" data-sort-key="limit">額度<span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+            <th><button type="button" class="sortbtn" data-sort-key="drawn">已動撥<span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+            <th><button type="button" class="sortbtn" data-sort-key="unused">未動撥<span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+            <th><button type="button" class="sortbtn" data-sort-key="rate">利率 (%)<span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+            <th></th>
           </tr>
         </thead>
         <tbody id="loan-tbody"></tbody>
@@ -418,6 +443,10 @@
         <div style="display: flex; align-items: center; gap: 6px;">
           <input type="checkbox" name="included" checked style="width: auto;">
           <label style="margin-bottom: 0;">計入可動用現金</label>
+        </div>
+        <div>
+          <label>備註</label>
+          <input type="text" name="note" placeholder="（選填）">
         </div>
       </div>
       <button type="submit">新增</button>
@@ -554,7 +583,7 @@
       id: row.id, bank: row.bank, credit_name: row.credit_name, nature: row.nature,
       project_code: row.project_code || '',
       limit: Number(row.limit_amount), drawn: Number(row.drawn), rate: Number(row.rate),
-      included: row.included, asset_type: row.asset_type || ''
+      included: row.included, asset_type: row.asset_type || '', note: row.note || ''
     };
   }
 
@@ -1060,6 +1089,65 @@
       detail.style.display = 'none';
       detail.innerHTML = '';
     }
+
+    renderNaturePieMini();
+  }
+
+  // --- 借款性質分布小圓餅圖（與利率 vs. 已動撥分布圖共用銀行篩選） ---
+  function renderNaturePieMini() {
+    var svg = document.getElementById('nature-pie-mini');
+    var legend = document.getElementById('nature-pie-mini-legend');
+    var emptyEl = document.getElementById('nature-pie-mini-empty');
+    if (!svg) return;
+
+    var loans = data.bank_loans.filter(function (l) {
+      return scatterBankFilter === '__all__' || (l.bank || '(未填銀行)') === scatterBankFilter;
+    });
+
+    var groups = {};
+    var order = [];
+    loans.forEach(function (l) {
+      var key = l.nature || '(未分類)';
+      if (!groups[key]) { groups[key] = { name: key, drawn: 0 }; order.push(key); }
+      groups[key].drawn += l.drawn;
+    });
+    var total = order.reduce(function (s, k) { return s + groups[k].drawn; }, 0);
+    var hasData = order.length > 0 && total > 0;
+
+    svg.style.display = hasData ? '' : 'none';
+    legend.style.display = hasData ? '' : 'none';
+    emptyEl.style.display = hasData ? 'none' : '';
+    if (!hasData) { svg.innerHTML = ''; legend.innerHTML = ''; return; }
+
+    var cx = 70, cy = 70, r = 62;
+    var angle = 0;
+    var colors = categoricalColors();
+    var svgParts = [];
+    var legendParts = [];
+
+    order.forEach(function (key, i) {
+      var g = groups[key];
+      var sweep = (g.drawn / total) * 360;
+      var start = angle, end = angle + sweep;
+      angle = end;
+      var color = colors[i % colors.length];
+      var path = wedgePath(cx, cy, r, start, end);
+      var pctText = (g.drawn / total * 100).toFixed(1);
+      var title = esc(key) + '\n已動撥 ' + fmt(g.drawn) + '（' + pctText + '%）';
+      if (path) {
+        svgParts.push('<g><title>' + title + '</title><path d="' + path + '" fill="' + color + '" stroke="var(--surface)" stroke-width="1.5"></path></g>');
+      }
+      legendParts.push(
+        '<div style="display:flex; align-items:center; gap:6px; padding:2px 0;">' +
+          '<span style="display:inline-block; width:10px; height:10px; border-radius:2px; background:' + color + '; flex-shrink:0;"></span>' +
+          '<span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis;">' + esc(key) + '</span>' +
+          '<span style="color:var(--text-muted); white-space:nowrap;">' + pctText + '%</span>' +
+        '</div>'
+      );
+    });
+
+    svg.innerHTML = svgParts.join('');
+    legend.innerHTML = legendParts.join('');
   }
 
   var pieGroupBy = 'credit_name';
@@ -1239,14 +1327,90 @@
   updatePieGroupButtons();
   updatePieLabelButtons();
 
+  // --- 銀行借款列表排序（只影響顯示順序，排序偏好存在瀏覽器本機） ---
+  var LOAN_TABLE_COLS = [
+    { key: 'included', label: '可否隨時動撥', get: function (l) { return l.included !== false ? 1 : 0; } },
+    { key: 'bank', label: '銀行', text: true },
+    { key: 'credit_name', label: '專案名稱', text: true },
+    { key: 'project_code', label: '專案代碼', text: true },
+    { key: 'nature', label: '性質', text: true },
+    { key: 'asset_type', label: '資產性質', text: true },
+    { key: 'limit', label: '額度' },
+    { key: 'drawn', label: '已動撥' },
+    { key: 'unused', label: '未動撥', get: function (l) { return l.limit - l.drawn; } },
+    { key: 'rate', label: '利率 (%)' }
+  ];
+  var loanTableSort = null;
+  try { loanTableSort = JSON.parse(localStorage.getItem('cashflow-loan-sort')); } catch (e) {}
+
+  function findLoanCol(key) {
+    for (var i = 0; i < LOAN_TABLE_COLS.length; i++) { if (LOAN_TABLE_COLS[i].key === key) return LOAN_TABLE_COLS[i]; }
+    return null;
+  }
+
+  function sortedLoanRows() {
+    var col = loanTableSort && findLoanCol(loanTableSort.key);
+    if (!col) return data.bank_loans;
+    var get = col.get || function (l) { return l[col.key]; };
+    var dir = loanTableSort.dir === 'desc' ? -1 : 1;
+    return data.bank_loans.slice().sort(function (a, b) {
+      var x = get(a), y = get(b);
+      if (!col.text) return dir * (x - y);
+      if (!x !== !y) return x ? -1 : 1;
+      return dir * String(x).localeCompare(String(y), 'zh-Hant');
+    });
+  }
+
+  function setLoanTableSort(next) {
+    loanTableSort = next;
+    try { next ? localStorage.setItem('cashflow-loan-sort', JSON.stringify(next)) : localStorage.removeItem('cashflow-loan-sort'); } catch (e) {}
+    renderLoanTable();
+  }
+
+  function cycleLoanTableSort(key) {
+    var col = findLoanCol(key);
+    if (!col) return;
+    var first = col.text ? 'asc' : 'desc', second = first === 'asc' ? 'desc' : 'asc';
+    if (!loanTableSort || loanTableSort.key !== key) setLoanTableSort({ key: key, dir: first });
+    else if (loanTableSort.dir === first) setLoanTableSort({ key: key, dir: second });
+    else setLoanTableSort(null);
+  }
+
+  function updateLoanTableSortUI() {
+    var sortCol = loanTableSort && findLoanCol(loanTableSort.key);
+    document.querySelectorAll('#loan-table thead .sortbtn').forEach(function (btn) {
+      var on = sortCol && btn.dataset.sortKey === loanTableSort.key;
+      btn.classList.toggle('on', !!on);
+      var arrow = btn.querySelector('.sort-arrow');
+      if (arrow) arrow.textContent = on ? (loanTableSort.dir === 'asc' ? '▲' : '▼') : '↕';
+      var th = btn.closest('th');
+      if (th) th.setAttribute('aria-sort', on ? (loanTableSort.dir === 'asc' ? 'ascending' : 'descending') : 'none');
+    });
+    var note = document.getElementById('loan-sort-note');
+    if (note) {
+      note.innerHTML = sortCol
+        ? '依「' + esc(sortCol.label) + '」' + (sortCol.text ? (loanTableSort.dir === 'asc' ? '遞增' : '遞減') : (loanTableSort.dir === 'asc' ? '由小到大' : '由大到小')) +
+          '排序 · <button type="button" id="btn-loan-sort-clear" style="border:0;background:none;padding:0;color:var(--accent);cursor:pointer;font:inherit;font-size:12px;">恢復原始順序</button>'
+        : '點欄位標題可排序';
+    }
+  }
+
+  document.getElementById('loan-table').querySelector('thead').addEventListener('click', function (e) {
+    var btn = e.target.closest('.sortbtn');
+    if (btn) { cycleLoanTableSort(btn.dataset.sortKey); return; }
+  });
+  document.getElementById('loan-sort-note').addEventListener('click', function (e) {
+    if (e.target.id === 'btn-loan-sort-clear') setLoanTableSort(null);
+  });
+
   function renderLoanTable() {
     var tbody = document.getElementById('loan-tbody');
-    var loans = data.bank_loans;
+    var loans = sortedLoanRows();
     document.getElementById('loan-table').style.display = loans.length ? '' : 'none';
     document.getElementById('loan-empty').style.display = loans.length ? 'none' : '';
 
     tbody.innerHTML = loans.map(function (loan) {
-      return '<tr data-id="' + loan.id + '">' +
+      return '<tr class="loan-row" data-id="' + loan.id + '">' +
         '<td class="checkbox-col sticky-col sticky-1"><input type="checkbox" class="loan-included"' + (loan.included !== false ? ' checked' : '') + '></td>' +
         '<td class="sticky-col sticky-2"><input type="text" class="loan-bank" value="' + esc(loan.bank) + '"></td>' +
         '<td class="sticky-col sticky-3"><input type="text" class="loan-credit-name" value="' + esc(loan.credit_name) + '"></td>' +
@@ -1264,6 +1428,12 @@
         '<td style="white-space: nowrap;">' +
           '<button type="button" class="btn-delete-loan danger">刪除</button>' +
         '</td>' +
+      '</tr>' +
+      '<tr class="loan-note-row" data-id="' + loan.id + '">' +
+        '<td colspan="11"><div class="loan-note-wrap">' +
+          '<span class="loan-note-label">備註</span>' +
+          '<input type="text" class="loan-note" placeholder="（無）" value="' + esc(loan.note || '') + '">' +
+        '</div></td>' +
       '</tr>';
     }).join('');
 
@@ -1280,6 +1450,7 @@
         '<td></td><td></td>' +
       '</tr>';
     }
+    updateLoanTableSortUI();
   }
 
   function renderForecast(today) {
@@ -1421,11 +1592,13 @@
 
   // --- 全部更新（一次按鍵，平行送出表格內所有列的異動） ---
   document.getElementById('btn-update-all-loans').addEventListener('click', async function () {
-    var rows = Array.from(document.querySelectorAll('#loan-tbody tr[data-id]'));
+    var rows = Array.from(document.querySelectorAll('#loan-tbody tr.loan-row[data-id]'));
     if (!rows.length) return;
     var statusEl = document.getElementById('loan-save-status');
     var updates = rows.map(function (tr) {
       var id = Number(tr.dataset.id);
+      var noteRow = tr.nextElementSibling;
+      var noteInput = noteRow && noteRow.classList.contains('loan-note-row') ? noteRow.querySelector('.loan-note') : null;
       var payload = {
         bank: tr.querySelector('.loan-bank').value.trim(),
         credit_name: tr.querySelector('.loan-credit-name').value.trim(),
@@ -1435,6 +1608,7 @@
         limit_amount: parseAmount(tr.querySelector('.loan-limit').value),
         drawn: parseAmount(tr.querySelector('.loan-drawn').value),
         rate: parseFloat(tr.querySelector('.loan-rate').value) || 0,
+        note: noteInput ? noteInput.value.trim() : '',
         updated_at: new Date().toISOString()
       };
       return sb.from('bank_loans').update(payload).eq('id', id);
@@ -1466,7 +1640,8 @@
       limit_amount: parseAmount(form.limit.value),
       drawn: parseAmount(form.drawn.value),
       rate: parseFloat(form.rate.value) || 0,
-      included: form.included.checked
+      included: form.included.checked,
+      note: form.note.value.trim()
     };
     setSyncStatus('新增中...');
     var { error } = await sb.from('bank_loans').insert(payload);
