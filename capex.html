@@ -711,6 +711,7 @@ function normalizeSale(x) {
   return {
     id: String(x.id || newId()), project: String(x.project ?? ''), handover: String(x.handover ?? ''),
     expectedTotal: amt(x.expectedTotal), actualAmount: amt(x.actualAmount), netCashAmount: amt(x.netCashAmount),
+    counted: x.counted !== false,
   };
 }
 const amt = v => Math.max(0, Number(v) || 0);
@@ -799,7 +800,7 @@ async function pushRents() {
 async function pushSales() {
   const rows = sales.map((x, i) => ({
     id: x.id, project: x.project, handover_period: x.handover,
-    expected_total: x.expectedTotal, actual_amount: x.actualAmount, net_cash_amount: x.netCashAmount, sort_order: i,
+    expected_total: x.expectedTotal, actual_amount: x.actualAmount, net_cash_amount: x.netCashAmount, counted: x.counted, sort_order: i,
     updated_at: new Date().toISOString(),
   }));
   const ids = sales.map(x => x.id);
@@ -1298,15 +1299,17 @@ function periodIndexForMonth(v) {
 }
 function saleCalc(x) {
   const idx = periodIndexForMonth(x.handover);
-  const status = !x.handover ? '未填交屋時間' : idx == null ? '超出目前年度範圍' : `計入 ${periodLabel(idx)}`;
-  return { idx, status };
+  let status = !x.handover ? '未填交屋時間' : idx == null ? '超出目前年度範圍' : `計入 ${periodLabel(idx)}`;
+  const active = idx != null && x.counted;
+  if (idx != null && !x.counted) status += '（未勾選計入）';
+  return { idx, status, active };
 }
-// Sale cash flow per half-year period: each record's 計入當期淨現金流金額 lands entirely in its handover period.
+// Sale cash flow per half-year period: each record's 計入當期淨現金流金額 lands entirely in its handover period, when 計入 is checked.
 function saleByPeriod() {
   const out = new Array(NP).fill(0);
   for (const x of sales) {
-    const idx = periodIndexForMonth(x.handover);
-    if (idx != null) out[idx] += x.netCashAmount;
+    const c = saleCalc(x);
+    if (c.active) out[c.idx] += x.netCashAmount;
   }
   return out;
 }
@@ -1770,6 +1773,7 @@ function renderSaleEditor() {
   $('projNames').replaceChildren(...[...new Set(projects.map(p => p.name.trim()).filter(Boolean))].map(n => h('option', { value: n })));
   const L = { style: 'text-align:left' };
   const thead = h('thead', {}, h('tr', {},
+    h('th', {}, '計入'),
     h('th', L, '案場'),
     h('th', L, '交屋時間'),
     h('th', L, '狀態'),
@@ -1786,7 +1790,11 @@ function renderSaleEditor() {
     const after = () => { updateSaleCalcs(); scheduleSave(); };
     const name = h('input', { class: 'inp txt', type: 'text', list: 'projNames', 'aria-label': '案場', placeholder: '案場', value: x.project });
     name.addEventListener('input', () => { x.project = name.value; scheduleSave(); });
+    const cb = h('input', { type: 'checkbox', 'aria-label': `${nm} 計入當期現金流` });
+    cb.checked = x.counted;
+    cb.addEventListener('change', () => { x.counted = cb.checked; after(); });
     tbody.append(h('tr', {},
+      h('td', { style: 'text-align:center' }, cb),
       h('td', { style: 'min-width:112px' }, name),
       h('td', {}, monthInput(() => x.handover, v => { x.handover = v; }, `${nm} 交屋時間`, after)),
       h('td', {}, ref.status),
@@ -1802,9 +1810,9 @@ function renderSaleEditor() {
         },
       }, '刪除'))));
   }
-  if (!sales.length) tbody.append(h('tr', {}, h('td', { colspan: 7, class: 'empty' }, '尚無銷售資料，請按「＋ 新增銷售資料」。')));
+  if (!sales.length) tbody.append(h('tr', {}, h('td', { colspan: 8, class: 'empty' }, '尚無銷售資料，請按「＋ 新增銷售資料」。')));
   saleFoot.label = h('td'); saleFoot.expected = h('b'); saleFoot.actual = h('b'); saleFoot.net = h('b');
-  tbody.append(h('tr', { class: 'tot' }, saleFoot.label, h('td'), h('td'),
+  tbody.append(h('tr', { class: 'tot' }, h('td'), saleFoot.label, h('td'), h('td'),
     h('td', { class: 'calc' }, saleFoot.expected), h('td', { class: 'calc' }, saleFoot.actual), h('td', { class: 'calc' }, saleFoot.net), h('td')));
   $('saletable').replaceChildren(thead, tbody);
   updateSaleCalcs();
@@ -1814,10 +1822,10 @@ function updateSaleCalcs() {
   for (const x of sales) {
     const c = saleCalc(x), ref = saleRefs.get(x.id);
     eSum += x.expectedTotal; aSum += x.actualAmount; nSum += x.netCashAmount;
-    if (c.idx != null) nCounted += x.netCashAmount;
+    if (c.active) nCounted += x.netCashAmount;
     if (!ref) continue;
     ref.status.textContent = c.status;
-    ref.status.className = 'pill' + (x.handover && c.idx == null ? ' warn' : '');
+    ref.status.className = 'pill' + (x.handover && (c.idx == null || !x.counted) ? ' warn' : '');
   }
   saleFoot.label.textContent = `合計（${sales.length} 筆）`;
   saleFoot.expected.textContent = eSum ? fmtWan(eSum) : '–';
@@ -2065,7 +2073,7 @@ async function fetchAll() {
   }));
   const fetchedSales = (saleRes.data || []).map(r => ({
     id: r.id, project: r.project, handover: r.handover_period,
-    expectedTotal: r.expected_total, actualAmount: r.actual_amount, netCashAmount: r.net_cash_amount,
+    expectedTotal: r.expected_total, actualAmount: r.actual_amount, netCashAmount: r.net_cash_amount, counted: r.counted,
   }));
   const metaRow = metaRes.data || { years: [2026, 2027, 2028, 2029, 2030], notes: [] };
   const cs = cashRes.data || { cash_on_hand: 0, trust_cash: 0, monthly_fixed_expense: 0, updated_at: null };
