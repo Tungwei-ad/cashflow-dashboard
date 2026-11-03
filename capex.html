@@ -743,6 +743,37 @@ const state = {
   useSimLoans: false,
 };
 const activeLoans = () => (state.useSimLoans ? simLoans : cash.loans);
+// 總覽's manual adjustments (selected projects, excluded periods, view toggles, 模擬貸款 on/off) are remembered
+// per browser, so switching away to the main 監控表 and back doesn't reset them to the defaults.
+function saveViewState() {
+  try {
+    localStorage.setItem('capex-view-state', JSON.stringify({
+      sel: [...state.sel], cumExclude: [...state.cumExclude],
+      gran: state.gran, unit: state.unit, colMode: state.colMode, useSimLoans: state.useSimLoans,
+    }));
+  } catch (e) {}
+}
+function loadViewState() {
+  try { return JSON.parse(localStorage.getItem('capex-view-state')); } catch (e) { return null; }
+}
+function applyViewState() {
+  const saved = loadViewState();
+  if (!saved) return;
+  if (Array.isArray(saved.sel)) {
+    const validSel = saved.sel.filter(id => projects.some(p => p.id === id));
+    if (validSel.length) state.sel = new Set(validSel);
+  }
+  if (Array.isArray(saved.cumExclude)) state.cumExclude = new Set(saved.cumExclude);
+  if (saved.gran === 'year' || saved.gran === 'half') state.gran = saved.gran;
+  if (saved.unit && UNITS[saved.unit]) state.unit = saved.unit;
+  if (saved.colMode === 'project' || saved.colMode === 'fund' || saved.colMode === 'cum') state.colMode = saved.colMode;
+  if (typeof saved.useSimLoans === 'boolean') state.useSimLoans = saved.useSimLoans;
+}
+function syncViewControls() {
+  for (const id of ['gran', 'unit', 'colMode']) {
+    for (const b of $(id).querySelectorAll('button')) b.setAttribute('aria-pressed', String(b.dataset.v === state[id]));
+  }
+}
 function normalizeSimLoan(l) {
   l = l || {};
   return {
@@ -1165,7 +1196,7 @@ function pickerInto(el, show) {
   el.hidden = !show;
   if (!show) return;
   const half = state.gran === 'half';
-  const rerender = () => { renderColumns(); renderCumulative(); scheduleSave(); };
+  const rerender = () => { renderColumns(); renderCumulative(); scheduleSave(); saveViewState(); };
   el.replaceChildren(h('span', { class: 'flabel' }, '納入累積'), ...buckets().map(b => {
     const keys = b.idx.map(periodLabel);
     const nEx = keys.filter(k => state.cumExclude.has(k)).length;
@@ -1949,6 +1980,7 @@ function renderSimLoanEditor() {
 }
 $('simLoanActive').addEventListener('change', () => {
   state.useSimLoans = $('simLoanActive').checked;
+  saveViewState();
   if (state.tab === 'view') { renderColumns(); renderCumulative(); }
 });
 $('copyRealLoansBtn').addEventListener('click', () => {
@@ -1990,7 +2022,7 @@ function cashCalc() {
 function recalc() {
   hideTip();
   renderKPIs(); renderColumns(); renderCumulative(); renderProjectList(); renderFundPeriods(); renderDetail(); updateEditorCalcs();
-  scheduleSave();
+  scheduleSave(); saveViewState();
 }
 function renderAll() {
   renderChips(); renderProjectEditor(); renderScheduleEditor(); renderFundingEditor(); renderRentEditor(); renderSaleEditor(); renderSimLoanEditor(); recalc();
@@ -2113,6 +2145,7 @@ async function bootData() {
   simLoans = data.simLoans.map(normalizeSimLoan);
   state.sel = new Set(projects.map(p => p.id));
   state.expanded = new Set(projects.filter(p => sum(p.shares) > 0).map(p => p.id));
+  applyViewState();
 }
 
 /* ---------- login gate (shared session with the main 監控表) ---------- */
@@ -2134,7 +2167,7 @@ async function start() {
     alert('讀取資料失敗，請確認網路連線：' + (e && e.message ? e.message : e));
     return;
   }
-  renderStatic(); syncThemeBtn(); renderAll();
+  renderStatic(); syncThemeBtn(); syncViewControls(); renderAll();
   if (['#edit', '#rent', '#sale', '#simloan'].includes(location.hash)) setTab(location.hash.slice(1));
   clearTimeout(saveTimer);
   setSaveStat('資料已從資料庫載入');
