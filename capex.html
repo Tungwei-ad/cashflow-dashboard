@@ -221,6 +221,7 @@ tr.soft td { color: var(--ink-2); }
 .inp:hover { border-color: var(--axis); }
 .inp:focus { outline: 2px solid var(--accent-ink); outline-offset: -1px; border-color: transparent; }
 .inp.bad { border-color: var(--critical); outline-color: var(--critical); }
+.inp.diffcell { border-color: var(--warn); background: color-mix(in srgb, var(--warn) 16%, var(--surface)); }
 select.inp { text-align: left; padding-right: 2px; }
 
 /* editor tables */
@@ -782,6 +783,74 @@ function normalizeSimLoan(l) {
     limit: amt(l.limit), drawn: amt(l.drawn), rate: amt(l.rate), counted: l.counted !== false,
   };
 }
+
+// Auto-compare each simulated loan against 東煒可動用現金監控表's real loan data, so edits that
+// drift from the source are flagged in 模擬貸款 instead of going unnoticed. There's no persistent
+// id linking a simulated loan back to the real row it was copied from (copies get a fresh id), and
+// the monitoring table can have several real loan lines with the same bank+project+code (e.g.
+// multiple credit facilities on one project) — so matching is a best-effort greedy pairing by
+// fewest differing fields within each bank+project+code group, not a simple lookup.
+const normStr = s => String(s ?? '').trim();
+const SIMLOAN_DIFF_FIELDS = [
+  { key: 'bank', label: '銀行' },
+  { key: 'project', label: '專案名稱' },
+  { key: 'code', label: '代碼' },
+  { key: 'kind', label: '性質' },
+  { key: 'assetType', label: '資產性質' },
+  { key: 'limit', label: '額度', numeric: true, fmt: v => fmtYuan(v) },
+  { key: 'drawn', label: '已動撥', numeric: true, fmt: v => fmtYuan(v) },
+  { key: 'rate', label: '利率', numeric: true, fmt: v => v.toFixed(4) + '%' },
+];
+function simLoanDiffFields(s, r) {
+  return SIMLOAN_DIFF_FIELDS.filter(f => f.numeric
+    ? Math.abs((Number(s[f.key]) || 0) - (Number(r[f.key]) || 0)) > 1e-6
+    : normStr(s[f.key]) !== normStr(r[f.key]));
+}
+function computeSimLoanDiffs() {
+  const keyFull = x => normStr(x.bank) + '|' + normStr(x.project) + '|' + normStr(x.code);
+  const keyLoose = x => normStr(x.bank) + '|' + normStr(x.project);
+  const result = new Map();
+  let pendingSims = simLoans.slice();
+  let pendingReals = cash.loans.slice();
+  const pass = keyFn => {
+    const realGroups = new Map();
+    for (const r of pendingReals) {
+      const k = keyFn(r);
+      if (!realGroups.has(k)) realGroups.set(k, []);
+      realGroups.get(k).push(r);
+    }
+    const stillPendingSims = [];
+    const claimedReals = new Set();
+    const simsByKey = new Map();
+    for (const sLoan of pendingSims) {
+      const k = keyFn(sLoan);
+      if (!realGroups.has(k)) { stillPendingSims.push(sLoan); continue; }
+      if (!simsByKey.has(k)) simsByKey.set(k, []);
+      simsByKey.get(k).push(sLoan);
+    }
+    for (const [k, sims] of simsByKey) {
+      const reals = realGroups.get(k);
+      const pairs = [];
+      for (const sLoan of sims) for (const r of reals) pairs.push({ sLoan, r, score: simLoanDiffFields(sLoan, r).length });
+      pairs.sort((a, b) => a.score - b.score);
+      const usedS = new Set(), usedR = new Set();
+      for (const p of pairs) {
+        if (usedS.has(p.sLoan.id) || usedR.has(p.r)) continue;
+        usedS.add(p.sLoan.id); usedR.add(p.r); claimedReals.add(p.r);
+        result.set(p.sLoan.id, { real: p.r, fields: simLoanDiffFields(p.sLoan, p.r) });
+      }
+      for (const sLoan of sims) if (!usedS.has(sLoan.id)) stillPendingSims.push(sLoan);
+    }
+    pendingSims = stillPendingSims;
+    pendingReals = pendingReals.filter(r => !claimedReals.has(r));
+  };
+  pass(keyFull);
+  pass(keyLoose);
+  for (const sLoan of pendingSims) result.set(sLoan.id, { real: null, fields: [] });
+  return result;
+}
+let simLoanDiffs = new Map();
+function simLoanDiff(l) { return simLoanDiffs.get(l.id) || { real: null, fields: [] }; }
 
 function calc(p) {
   const budget = p.area * p.unitCost, landTotal = p.landArea * p.landPrice;
@@ -1907,6 +1976,7 @@ const SIMLOAN_COLS = [
   { key: 'drawn', label: '已動撥' },
   { key: 'unused', label: '未動撥', get: l => l.limit - l.drawn },
   { key: 'rate', label: '利率', sub: '%' },
+  { key: 'diffCount', label: '與正式資料比對', center: true, get: l => { const d = simLoanDiff(l); return d.real ? d.fields.length : -1; } },
 ];
 // Sorting only changes the view; the stored order (and what's saved) stays as entered. Remembered per browser.
 let simLoanSort = null;
@@ -1945,6 +2015,7 @@ function simLoanHeader(col) {
   col.sub ? h('small', {}, col.sub) : null);
 }
 function renderSimLoanEditor() {
+  simLoanDiffs = computeSimLoanDiffs();
   $('simLoanActive').checked = state.useSimLoans;
   const thead = h('thead', {}, h('tr', {}, ...SIMLOAN_COLS.map(simLoanHeader), h('th', {}, '')));
   const sortCol = simLoanSort && SIMLOAN_COLS.find(c => c.key === simLoanSort.key);
@@ -1955,27 +2026,52 @@ function renderSimLoanEditor() {
     : ['點欄位標題可排序']));
   const tbody = h('tbody');
   for (const l of sortedSimLoans()) {
+    const diff = simLoanDiff(l);
+    const diffMap = new Map(diff.fields.map(f => [f.key, f]));
+    const markDiff = (el, key) => {
+      const f = diffMap.get(key);
+      if (!f) return;
+      const simVal = f.fmt ? f.fmt(Number(l[key]) || 0) : (normStr(l[key]) || '（空白）');
+      const realVal = f.fmt ? f.fmt(Number(diff.real[key]) || 0) : (normStr(diff.real[key]) || '（空白）');
+      el.classList.add('diffcell');
+      el.title = `與東煒可動用現金監控表不同：模擬＝${simVal}／正式＝${realVal}`;
+    };
     const unused = h('span', {}, fmtYuan(Math.max(0, l.limit - l.drawn)));
     const cb = h('input', { type: 'checkbox', 'aria-label': `${l.project || l.bank} 計入可動用現金` });
     cb.checked = l.counted;
     cb.addEventListener('change', () => { l.counted = cb.checked; scheduleSimLoanSave(); });
-    const limitInp = slNumInput(() => l.limit, v => { l.limit = v; unused.textContent = fmtYuan(Math.max(0, l.limit - l.drawn)); }, { width: 110 });
-    const drawnInp = slNumInput(() => l.drawn, v => { l.drawn = v; unused.textContent = fmtYuan(Math.max(0, l.limit - l.drawn)); }, { width: 110 });
+    const bankInp = slTextInput(() => l.bank, v => { l.bank = v; }, { width: 90 }); markDiff(bankInp, 'bank');
+    const projectInp = slTextInput(() => l.project, v => { l.project = v; }, { width: 120 }); markDiff(projectInp, 'project');
+    const codeInp = slTextInput(() => l.code, v => { l.code = v; }, { width: 70 }); markDiff(codeInp, 'code');
+    const kindInp = slTextInput(() => l.kind, v => { l.kind = v; }, { width: 90 }); markDiff(kindInp, 'kind');
+    const assetInp = slTextInput(() => l.assetType, v => { l.assetType = v; }, { width: 70 }); markDiff(assetInp, 'assetType');
+    const limitInp = slNumInput(() => l.limit, v => { l.limit = v; unused.textContent = fmtYuan(Math.max(0, l.limit - l.drawn)); }, { width: 110 }); markDiff(limitInp, 'limit');
+    const drawnInp = slNumInput(() => l.drawn, v => { l.drawn = v; unused.textContent = fmtYuan(Math.max(0, l.limit - l.drawn)); }, { width: 110 }); markDiff(drawnInp, 'drawn');
+    const rateInp = slNumInput(() => l.rate, v => { l.rate = v; }, { digits: 4, width: 64 }); markDiff(rateInp, 'rate');
+    let diffCell;
+    if (!diff.real) {
+      diffCell = h('span', { class: 'pill' }, '正式資料無此筆');
+    } else if (!diff.fields.length) {
+      diffCell = h('span', { class: 'pill' }, '✓ 一致');
+    } else {
+      const detail = diff.fields.map(f => {
+        const simVal = f.fmt ? f.fmt(Number(l[f.key]) || 0) : (normStr(l[f.key]) || '（空白）');
+        const realVal = f.fmt ? f.fmt(Number(diff.real[f.key]) || 0) : (normStr(diff.real[f.key]) || '（空白）');
+        return `${f.label}：模擬 ${simVal} ／ 正式 ${realVal}`;
+      }).join('\n');
+      diffCell = h('span', { class: 'pill warn', title: detail }, `不同（${diff.fields.length}項）`);
+    }
     tbody.append(h('tr', {},
       h('td', { class: 'simcell', style: 'text-align:center' }, cb),
-      h('td', {}, slTextInput(() => l.bank, v => { l.bank = v; }, { width: 90 })),
-      h('td', {}, slTextInput(() => l.project, v => { l.project = v; }, { width: 120 })),
-      h('td', {}, slTextInput(() => l.code, v => { l.code = v; }, { width: 70 })),
-      h('td', {}, slTextInput(() => l.kind, v => { l.kind = v; }, { width: 90 })),
-      h('td', {}, slTextInput(() => l.assetType, v => { l.assetType = v; }, { width: 70 })),
-      h('td', {}, limitInp), h('td', {}, drawnInp), h('td', {}, unused),
-      h('td', {}, slNumInput(() => l.rate, v => { l.rate = v; }, { digits: 4, width: 64 })),
+      h('td', {}, bankInp), h('td', {}, projectInp), h('td', {}, codeInp), h('td', {}, kindInp), h('td', {}, assetInp),
+      h('td', {}, limitInp), h('td', {}, drawnInp), h('td', {}, unused), h('td', {}, rateInp),
+      h('td', { style: 'text-align:center' }, diffCell),
       h('td', {}, h('button', {
         type: 'button', class: 'del', 'aria-label': `刪除 ${l.project || l.bank}`,
         onclick: () => { simLoans = simLoans.filter(x => x !== l); renderSimLoanEditor(); scheduleSimLoanSave(); },
       }, '刪除'))));
   }
-  if (!simLoans.length) tbody.append(h('tr', {}, h('td', { colspan: 11, class: 'empty' }, '尚無模擬借款，請按「＋ 新增模擬借款」或「從正式資料複製一份」。')));
+  if (!simLoans.length) tbody.append(h('tr', {}, h('td', { colspan: 12, class: 'empty' }, '尚無模擬借款，請按「＋ 新增模擬借款」或「從正式資料複製一份」。')));
   $('sltable').replaceChildren(thead, tbody);
 }
 $('simLoanActive').addEventListener('change', () => {
