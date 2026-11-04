@@ -315,6 +315,12 @@
         <div id="nature-pie-mini-legend" style="font-size: 12px;"></div>
         <div class="empty" id="nature-pie-mini-empty" style="display:none; font-size: 12px; padding: 10px;">無資料</div>
       </div>
+      <div style="min-width: 160px; max-width: 220px; padding-top: 0;">
+        <div style="font-size: 12px; color: var(--text-muted); font-weight: 600; margin-bottom: 8px; text-align: center;">借款性質分布（額度）</div>
+        <svg id="nature-pie-mini-limit" class="chart-svg" width="140" height="140" viewBox="0 0 140 140" style="display: block; margin: 0 auto 10px;"></svg>
+        <div id="nature-pie-mini-limit-legend" style="font-size: 12px;"></div>
+        <div class="empty" id="nature-pie-mini-limit-empty" style="display:none; font-size: 12px; padding: 10px;">無資料</div>
+      </div>
     </div>
     <div class="empty" id="rate-scatter-empty" style="display:none;">目前沒有借款資料。</div>
   </div>
@@ -838,12 +844,14 @@
     var COLOR_DEPOSIT = categoricalColors()[0];
     var COLOR_CREDIT = categoricalColors()[1];
     var COLOR_TOTAL = categoricalColors()[2];
+    var COLOR_TREND = categoricalColors()[5];
 
     legend.innerHTML =
       '<div style="display:flex; align-items:center; gap:6px;"><span style="display:inline-block; width:11px; height:11px; border-radius:2px; background:' + COLOR_DEPOSIT + ';"></span>可動用銀行存款</div>' +
       '<div style="display:flex; align-items:center; gap:6px;"><span style="display:inline-block; width:11px; height:11px; border-radius:2px; background:' + COLOR_CREDIT + ';"></span>銀行可動撥餘額(土融及不動產融資)</div>' +
       '<div style="display:flex; align-items:center; gap:6px;"><span style="display:inline-block; width:11px; height:11px; border-radius:2px; background:' + COLOR_TOTAL + ';"></span>今日可動用現金（合計）</div>' +
-      '<div style="display:flex; align-items:center; gap:6px;"><span style="display:inline-block; width:11px; border-top:2px dashed var(--text-muted);"></span>穩健水位</div>';
+      '<div style="display:flex; align-items:center; gap:6px;"><span style="display:inline-block; width:11px; border-top:2px dashed var(--text-muted);"></span>穩健水位</div>' +
+      '<div style="display:flex; align-items:center; gap:6px;"><span style="display:inline-block; width:11px; border-top:2.5px solid ' + COLOR_TREND + ';"></span>趨勢線（可動用現金）</div>';
 
     // 柱狀寬度／間距會依容器寬度自動放大，資料筆數少時才不會整組柱子擠在左邊、右側留一大片空白；
     // 資料筆數多到連最小間距都放不下時，就維持最小間距，改用 .table-scroll 的左右捲動。
@@ -924,6 +932,27 @@
     var firstStableY = yScale(history[0].stable_cash_level == null ? currentStableLevel : history[0].stable_cash_level);
     var thresholdLabelY = Math.max(plotTop + 10, firstStableY - 6);
     parts.push('<text x="' + (plotLeft + 4) + '" y="' + thresholdLabelY + '" text-anchor="start" font-size="10" font-weight="600" fill="var(--text-muted)">穩健水位</text>');
+
+    // 趨勢線：以可動用現金（合計）做最小平方回歸，畫出整段資料的升降方向
+    if (n >= 2) {
+      var sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+      history.forEach(function (h, i) {
+        sumX += i; sumY += h.available_cash; sumXY += i * h.available_cash; sumXX += i * i;
+      });
+      var denom = n * sumXX - sumX * sumX;
+      if (denom !== 0) {
+        var slope = (n * sumXY - sumX * sumY) / denom;
+        var intercept = (sumY - slope * sumX) / n;
+        var x0 = plotLeft + slot * 0 + slot / 2;
+        var x1 = plotLeft + slot * (n - 1) + slot / 2;
+        var y0 = yScale(intercept);
+        var y1 = yScale(intercept + slope * (n - 1));
+        parts.push('<line x1="' + x0 + '" y1="' + y0 + '" x2="' + x1 + '" y2="' + y1 + '" stroke="' + COLOR_TREND + '" stroke-width="2.5" stroke-linecap="round"></line>');
+        var trendLabelX = x1 + 6;
+        var trendLabelY = y1 + (slope >= 0 ? 4 : -4);
+        parts.push('<text x="' + Math.min(trendLabelX, plotRight - 4) + '" y="' + trendLabelY + '" text-anchor="end" font-size="10" font-weight="700" fill="' + COLOR_TREND + '">趨勢</text>');
+      }
+    }
 
     svg.setAttribute('viewBox', '0 0 ' + viewW + ' ' + viewH);
     svg.setAttribute('width', viewW);
@@ -1112,9 +1141,14 @@
 
   // --- 借款性質分布小圓餅圖（與利率 vs. 已動撥分布圖共用銀行篩選） ---
   function renderNaturePieMini() {
-    var svg = document.getElementById('nature-pie-mini');
-    var legend = document.getElementById('nature-pie-mini-legend');
-    var emptyEl = document.getElementById('nature-pie-mini-empty');
+    renderNaturePieMiniFor('drawn', '已動撥', 'nature-pie-mini', 'nature-pie-mini-legend', 'nature-pie-mini-empty');
+    renderNaturePieMiniFor('limit', '額度', 'nature-pie-mini-limit', 'nature-pie-mini-limit-legend', 'nature-pie-mini-limit-empty');
+  }
+
+  function renderNaturePieMiniFor(metricKey, metricLabel, svgId, legendId, emptyId) {
+    var svg = document.getElementById(svgId);
+    var legend = document.getElementById(legendId);
+    var emptyEl = document.getElementById(emptyId);
     if (!svg) return;
 
     var loans = data.bank_loans.filter(function (l) {
@@ -1125,10 +1159,10 @@
     var order = [];
     loans.forEach(function (l) {
       var key = l.nature || '(未分類)';
-      if (!groups[key]) { groups[key] = { name: key, drawn: 0 }; order.push(key); }
-      groups[key].drawn += l.drawn;
+      if (!groups[key]) { groups[key] = { name: key, value: 0 }; order.push(key); }
+      groups[key].value += l[metricKey];
     });
-    var total = order.reduce(function (s, k) { return s + groups[k].drawn; }, 0);
+    var total = order.reduce(function (s, k) { return s + groups[k].value; }, 0);
     var hasData = order.length > 0 && total > 0;
 
     svg.style.display = hasData ? '' : 'none';
@@ -1144,13 +1178,13 @@
 
     order.forEach(function (key, i) {
       var g = groups[key];
-      var sweep = (g.drawn / total) * 360;
+      var sweep = (g.value / total) * 360;
       var start = angle, end = angle + sweep;
       angle = end;
       var color = colors[i % colors.length];
       var path = wedgePath(cx, cy, r, start, end);
-      var pctText = (g.drawn / total * 100).toFixed(1);
-      var title = esc(key) + '\n已動撥 ' + fmt(g.drawn) + '（' + pctText + '%）';
+      var pctText = (g.value / total * 100).toFixed(1);
+      var title = esc(key) + '\n' + metricLabel + ' ' + fmt(g.value) + '（' + pctText + '%）';
       if (path) {
         svgParts.push('<g><title>' + title + '</title><path d="' + path + '" fill="' + color + '" stroke="var(--surface)" stroke-width="1.5"></path></g>');
       }
