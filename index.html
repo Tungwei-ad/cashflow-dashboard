@@ -845,14 +845,25 @@
       '<div style="display:flex; align-items:center; gap:6px;"><span style="display:inline-block; width:11px; height:11px; border-radius:2px; background:' + COLOR_TOTAL + ';"></span>今日可動用現金（合計）</div>' +
       '<div style="display:flex; align-items:center; gap:6px;"><span style="display:inline-block; width:11px; border-top:2px dashed var(--text-muted);"></span>穩健水位</div>';
 
+    // 柱狀寬度／間距會依容器寬度自動放大，資料筆數少時才不會整組柱子擠在左邊、右側留一大片空白；
+    // 資料筆數多到連最小間距都放不下時，就維持最小間距，改用 .table-scroll 的左右捲動。
     var n = history.length;
-    var barW = 22, barGap = 4;
-    var clusterW = barW * 3 + barGap * 2;
-    var slot = clusterW + 28;
+    var baseBarW = 22, baseBarGap = 4, baseSlotPad = 28;
+    var naturalSlot = baseBarW * 3 + baseBarGap * 2 + baseSlotPad;
     var viewH = 340;
     var plotLeft = 90, plotTop = 108, plotBottom = viewH - 40;
+
+    var containerW = (svg.parentElement && svg.parentElement.clientWidth) || 0;
+    var scale = 1;
+    if (n > 0 && containerW > plotLeft + n * naturalSlot + 20) {
+      scale = (containerW - plotLeft - 20) / (n * naturalSlot);
+      scale = Math.min(scale, 2.2);
+    }
+    var barW = baseBarW * scale, barGap = baseBarGap * scale;
+    var clusterW = barW * 3 + barGap * 2;
+    var slot = clusterW + baseSlotPad * scale;
     var plotRight = plotLeft + n * slot;
-    var viewW = plotRight + 20;
+    var viewW = Math.max(plotRight + 20, containerW);
     var plotH = plotBottom - plotTop;
 
     var maxVal = history.reduce(function (m, h) { return Math.max(m, h.available_cash); }, 0);
@@ -934,6 +945,12 @@
     document.getElementById('cash-history-range-start').value = '';
     document.getElementById('cash-history-range-end').value = '';
     renderCashHistoryChart();
+  });
+
+  var cashHistoryResizeTimer = null;
+  window.addEventListener('resize', function () {
+    clearTimeout(cashHistoryResizeTimer);
+    cashHistoryResizeTimer = setTimeout(renderCashHistoryChart, 150);
   });
 
   function renderRateScatterFilterButtons() {
