@@ -85,7 +85,7 @@
   .balance-box + .breakdown { margin-top: 12px; }
   .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
   .cols-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; align-items: start; margin-bottom: 22px; }
-  .cols-2 > .card { margin-bottom: 0; }
+  .cols-2 > .card { margin-bottom: 0; min-width: 0; }
   label { display: block; font-size: 12.5px; font-weight: 600; color: var(--text-secondary); margin-bottom: 5px; }
   input[type=number], input[type=date], input[type=text], input[type=password], select {
     width: 100%; padding: 9px 11px; border: 1px solid var(--border); border-radius: var(--radius-sm); box-sizing: border-box;
@@ -121,6 +121,11 @@
   .stats-row .breakdown { font-size: 11.5px; }
   .amount.secondary { color: #1d4ed8; font-size: 30px; }
   .stats-row .amount { font-size: 27px; }
+  @keyframes barGrow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+  #cash-bar-chart .bar-segment, #cash-history-chart .bar-segment {
+    transform-box: fill-box; transform-origin: bottom;
+    animation: barGrow 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
   .stat-green { border-top: 3px solid #0a7d3c; }
   .stat-blue { border-top: 3px solid #1d4ed8; }
   .stat-amber { border-top: 3px solid #b45309; }
@@ -257,45 +262,47 @@
     </div>
   </div>
 
-  <div class="card">
-    <h2>可動用現金流組成 vs. 公司穩健現金水位</h2>
-    <div class="grid" style="margin-bottom: 10px;">
-      <div>
-        <label>每月固定費用</label>
-        <input type="text" inputmode="numeric" class="thousands-input" id="fixed-expense-input">
+  <div class="cols-2">
+    <div class="card">
+      <h2>可動用現金流組成 vs. 公司穩健現金水位</h2>
+      <div class="grid" style="margin-bottom: 10px;">
+        <div>
+          <label>每月固定費用</label>
+          <input type="text" inputmode="numeric" class="thousands-input" id="fixed-expense-input">
+        </div>
       </div>
-    </div>
-    <button type="button" id="btn-save-fixed-expense">儲存</button>
-    <div class="breakdown" style="margin-top: 8px;">
-      公司穩健現金水位 = （每月固定費用 <span id="stable-fixed">0</span> + 每月預估利息 <span id="stable-interest">0</span>）× 6 × 1.1 = <strong id="stable-level" style="color:var(--text-primary);">0</strong>
+      <button type="button" id="btn-save-fixed-expense">儲存</button>
+      <div class="breakdown" style="margin-top: 8px;">
+        公司穩健現金水位 = （每月固定費用 <span id="stable-fixed">0</span> + 每月預估利息 <span id="stable-interest">0</span>）× 6 × 1.1 = <strong id="stable-level" style="color:var(--text-primary);">0</strong>
+      </div>
+
+      <div style="display: flex; gap: 24px; align-items: center; justify-content: center; flex-wrap: wrap; margin-top: 16px;">
+        <svg id="cash-bar-chart" class="chart-svg" width="300" height="300" viewBox="0 0 300 300" style="flex-shrink: 0;"></svg>
+        <div style="min-width: 180px; max-width: 260px;">
+          <div id="cash-bar-legend" style="font-size: 13px;"></div>
+          <div id="cash-bar-status" style="margin-top: 14px; font-size: 14px; font-weight: 600;"></div>
+        </div>
+      </div>
     </div>
 
-    <div style="display: flex; gap: 32px; align-items: center; justify-content: center; flex-wrap: wrap; margin-top: 16px;">
-      <svg id="cash-bar-chart" class="chart-svg" width="300" height="300" viewBox="0 0 300 300" style="flex-shrink: 0;"></svg>
-      <div style="min-width: 220px; max-width: 280px;">
-        <div id="cash-bar-legend" style="font-size: 13px;"></div>
-        <div id="cash-bar-status" style="margin-top: 14px; font-size: 14px; font-weight: 600;"></div>
+    <div class="card">
+      <div class="toolbar" style="justify-content: space-between; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--border-light); flex-wrap: wrap; gap: 10px;">
+        <h2 style="margin-bottom: 0; border-bottom: none; padding-bottom: 0;">每日可動用現金趨勢</h2>
+        <div class="toolbar" style="flex-wrap: wrap;">
+          <span style="font-size: 12.5px; color: var(--text-secondary);">區間</span>
+          <input type="date" id="cash-history-range-start" style="width: auto; padding: 6px 8px;">
+          <span style="color: var(--text-muted);">～</span>
+          <input type="date" id="cash-history-range-end" style="width: auto; padding: 6px 8px;">
+          <button type="button" class="secondary" id="btn-cash-history-range-clear" style="margin-top: 0;">預設（近 7 天）</button>
+        </div>
       </div>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="toolbar" style="justify-content: space-between; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--border-light); flex-wrap: wrap; gap: 10px;">
-      <h2 style="margin-bottom: 0; border-bottom: none; padding-bottom: 0;">每日可動用現金趨勢</h2>
-      <div class="toolbar" style="flex-wrap: wrap;">
-        <span style="font-size: 12.5px; color: var(--text-secondary);">區間</span>
-        <input type="date" id="cash-history-range-start" style="width: auto; padding: 6px 8px;">
-        <span style="color: var(--text-muted);">～</span>
-        <input type="date" id="cash-history-range-end" style="width: auto; padding: 6px 8px;">
-        <button type="button" class="secondary" id="btn-cash-history-range-clear" style="margin-top: 0;">預設（近 7 天）</button>
+      <div class="breakdown" style="margin-bottom: 10px;">預設顯示今天往前推 7 天，不含週六、週日；也可自選日期區間（仍會略過週六、週日）。</div>
+      <div id="cash-history-legend" style="display:flex; gap:18px; flex-wrap:wrap; font-size:12.5px; margin-bottom:10px;"></div>
+      <div class="table-scroll">
+        <svg id="cash-history-chart" width="1200" height="300" viewBox="0 0 1200 300" style="display:block; height:auto;"></svg>
       </div>
+      <div class="empty" id="cash-history-empty" style="display:none;">目前沒有歷史紀錄，系統將於每天 23:59 自動記錄一筆。</div>
     </div>
-    <div class="breakdown" style="margin-bottom: 10px;">預設顯示今天往前推 7 天，不含週六、週日；也可自選日期區間（仍會略過週六、週日）。</div>
-    <div id="cash-history-legend" style="display:flex; gap:18px; flex-wrap:wrap; font-size:12.5px; margin-bottom:10px;"></div>
-    <div class="table-scroll">
-      <svg id="cash-history-chart" width="1200" height="300" viewBox="0 0 1200 300" style="display:block; height:auto;"></svg>
-    </div>
-    <div class="empty" id="cash-history-empty" style="display:none;">目前沒有歷史紀錄，系統將於每天 23:59 自動記錄一筆。</div>
   </div>
 
   <div class="card">
@@ -804,7 +811,7 @@
       var segTop = y2top;
       var segBottom = y1top - (seg1 > 0 ? gap : 0);
       var segH = Math.max(0, segBottom - segTop);
-      parts.push('<g class="bar-segment" data-label="銀行可動撥餘額">' +
+      parts.push('<g class="bar-segment" data-label="銀行可動撥餘額" style="animation-delay:90ms;">' +
         '<title>銀行可動撥餘額：' + fmt(seg2) + '</title>' +
         '<path d="' + roundedTopRectPath(barX, segTop, barW, segH, 4) + '" fill="' + COLOR_2 + '"></path>' +
       '</g>');
@@ -942,7 +949,8 @@
         var barX = barCenter - barW / 2;
         var top = yScale(bar.value);
         var h_px = plotBottom - top;
-        parts.push('<g>' +
+        var delay = Math.min(i * 35, 500) + bi * 12;
+        parts.push('<g class="bar-segment" style="animation-delay:' + delay + 'ms;">' +
           '<title>' + esc(h.date) + ' ' + bar.label + '：' + fmt(bar.value) + '（穩健水位 ' + fmt(levelForTitle) + '）</title>' +
           '<path d="' + roundedTopRectPath(barX, top, barW, h_px, 3) + '" fill="' + bar.color + '"></path>' +
         '</g>');
