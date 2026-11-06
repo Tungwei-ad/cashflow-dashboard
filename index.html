@@ -369,6 +369,87 @@
   .card:hover { box-shadow: 0 2px 3px var(--shadow), 0 22px 42px -28px var(--shadow-strong); }
   html { scroll-behavior: smooth; }
 
+  /* ---------- Executive finance theme ---------- */
+  :root {
+    --page-bg: #f3f6fa;
+    --page-grid: rgba(15, 38, 65, 0.025);
+    --page-glow-1: rgba(37, 99, 235, 0.07);
+    --page-glow-2: rgba(15, 118, 110, 0.045);
+    --card-bg: rgba(255,255,255,0.96);
+    --surface-alt: #f7f9fc;
+    --text-primary: #27364a;
+    --text-heading: #11243d;
+    --text-secondary: #53657b;
+    --text-muted: #7a899c;
+    --border: #ccd6e2;
+    --border-light: #e3e9f0;
+    --accent: #1d4ed8;
+    --accent-2: #0f766e;
+    --accent-hover: #1e40af;
+    --accent-soft: rgba(29,78,216,0.085);
+    --radius: 10px;
+    --radius-sm: 6px;
+  }
+  :root[data-theme="dark"] {
+    --page-bg: #0b1220;
+    --page-grid: rgba(148,163,184,0.025);
+    --page-glow-1: rgba(37,99,235,0.10);
+    --page-glow-2: rgba(15,118,110,0.07);
+    --card-bg: rgba(17,27,45,0.96);
+    --surface: #111b2d;
+    --surface-alt: #162238;
+    --text-primary: #d7e0ec;
+    --text-heading: #f4f7fb;
+    --text-secondary: #a8b5c6;
+    --text-muted: #77879b;
+    --border: #314056;
+    --border-light: #26344a;
+    --accent: #60a5fa;
+    --accent-2: #5eead4;
+    --accent-soft: rgba(96,165,250,0.10);
+    --glow-alpha: 12%;
+  }
+  body {
+    padding: 24px 28px 42px;
+    background-size: auto, auto, 48px 48px, 48px 48px;
+  }
+  .app-header {
+    padding: 18px 20px; margin-bottom: 18px; overflow: visible;
+    box-shadow: 0 8px 26px -22px rgba(15,38,65,.42);
+  }
+  .app-header::after { animation: none; height: 1px; opacity: .45; }
+  .brand-mark { border-radius: 9px; box-shadow: 0 7px 18px -10px rgba(29,78,216,.7); }
+  .eyebrow { color: var(--text-muted); letter-spacing: .14em; }
+  h1 { font-size: 21px; letter-spacing: 0; }
+  .card {
+    backdrop-filter: none; -webkit-backdrop-filter: none;
+    padding: 20px 22px; margin-bottom: 18px;
+    box-shadow: 0 8px 24px -22px rgba(15,38,65,.48);
+  }
+  .card::before { opacity: .22; }
+  .card::after { opacity: .22; }
+  .card:hover { box-shadow: 0 10px 28px -22px rgba(15,38,65,.52); }
+  .stats-row { gap: 12px; margin-bottom: 20px; }
+  .stats-row .card { padding: 17px 17px 15px; }
+  .stats-row .card:hover { transform: none; }
+  .stats-row .card::before { height: 2px; box-shadow: none; }
+  .stats-row .card::after { opacity: .18; }
+  .kpi-glow { display: none; }
+  .kpi-icon { border-radius: 7px; }
+  .stats-row .amount, .stats-row .amount.secondary { text-shadow: none; letter-spacing: -.035em; }
+  .command-deck {
+    top: 8px; margin: 0 0 20px; border-color: var(--border-light); border-radius: 8px;
+    box-shadow: 0 8px 24px -20px rgba(15,38,65,.46);
+  }
+  .command-state::before { width: 7px; height: 7px; box-shadow: 0 0 0 3px color-mix(in srgb, var(--good) 11%, transparent); }
+  .command-title { color: var(--text-heading); letter-spacing: .11em; }
+  .section-nav a { font-family: "Segoe UI", "Microsoft JhengHei", sans-serif; font-size: 12px; letter-spacing: 0; font-weight: 600; }
+  .section-label { margin-top: 4px; font-family: "Segoe UI", "Microsoft JhengHei", sans-serif; letter-spacing: .08em; }
+  button { background: var(--accent); border-radius: 6px; box-shadow: none; }
+  button:hover { filter: none; background: var(--accent-hover); box-shadow: 0 0 0 3px var(--accent-soft); }
+  input[type=number], input[type=date], input[type=text], input[type=password], select { border-radius: 6px; }
+  th { letter-spacing: .035em; }
+
   @media (max-width: 1280px) { .stats-row { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
   @media (max-width: 900px) {
     .cols-2 { grid-template-columns: 1fr; }
@@ -472,8 +553,8 @@
 
   <div class="command-deck" aria-label="儀表板快速導覽">
     <div class="command-state">
-      <span class="command-title">SYSTEM ONLINE</span>
-      <span class="command-copy">即時資金視圖 · 資料異動自動同步</span>
+      <span class="command-title">資料同步正常</span>
+      <span class="command-copy">即時資金監控 · 最後狀態以右上角同步提示為準</span>
     </div>
     <nav class="section-nav" aria-label="頁面區段">
       <a href="#overview">01 總覽</a>
@@ -483,7 +564,7 @@
     </nav>
   </div>
 
-  <div class="section-label" data-index="01">Liquidity overview</div>
+  <div class="section-label" data-index="01">資金部位總覽</div>
   <div class="stats-row section-anchor" id="overview">
     <div class="card stat-green">
       <div class="kpi-glow"></div>
@@ -533,7 +614,7 @@
     </div>
   </div>
 
-  <div class="section-label" data-index="02">Cash intelligence</div>
+  <div class="section-label" data-index="02">現金水位與趨勢</div>
   <div class="cols-2 section-anchor" id="cash-intelligence">
     <div class="card">
       <h2>可動用現金流組成 vs. 公司穩健現金水位</h2>
@@ -577,7 +658,7 @@
     </div>
   </div>
 
-  <div class="section-label" data-index="03">Loan intelligence</div>
+  <div class="section-label" data-index="03">借款結構分析</div>
   <div class="card section-anchor" id="loan-intelligence">
     <div class="toolbar" style="justify-content: space-between; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--border-light); flex-wrap: wrap; gap: 10px;">
       <h2 style="margin-bottom: 0; border-bottom: none; padding-bottom: 0;">利率 vs. 已動撥分布圖</h2>
@@ -639,7 +720,7 @@
     <div class="empty" id="loan-pie-empty" style="display:none;">目前沒有借款資料。</div>
   </div>
 
-  <div class="section-label" data-index="04">Data operations</div>
+  <div class="section-label" data-index="04">資料維護與更新</div>
   <div class="card section-anchor" id="data-operations">
     <h2>更新銀行存款</h2>
     <div class="grid">
