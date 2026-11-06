@@ -115,9 +115,12 @@
   .empty { color: var(--text-muted); font-size: 13px; padding: 22px 10px; text-align: center; border: 1px dashed var(--border); border-radius: var(--radius-sm); }
   .form-row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
   .form-row > div { flex: 1; min-width: 120px; }
-  .stats-row { display: flex; gap: 18px; margin-bottom: 22px; flex-wrap: wrap; }
-  .stats-row .card { flex: 1; margin-bottom: 0; min-width: 230px; }
+  .stats-row { display: flex; gap: 14px; margin-bottom: 22px; flex-wrap: wrap; }
+  .stats-row .card { flex: 1; margin-bottom: 0; min-width: 200px; padding: 18px 16px; }
+  .stats-row h2 { font-size: 13.5px; margin-bottom: 12px; padding-bottom: 10px; }
+  .stats-row .breakdown { font-size: 11.5px; }
   .amount.secondary { color: #1d4ed8; font-size: 30px; }
+  .stats-row .amount { font-size: 27px; }
   .stat-green { border-top: 3px solid #0a7d3c; }
   .stat-blue { border-top: 3px solid #1d4ed8; }
   .stat-amber { border-top: 3px solid #b45309; }
@@ -238,9 +241,6 @@
       <div class="balance-box"><div class="amount secondary" id="bank-available">0</div></div>
       <div class="breakdown">僅計入下方已勾選「計入」的借款 <span id="bank-breakdown"></span></div>
     </div>
-  </div>
-
-  <div class="stats-row">
     <div class="card stat-amber">
       <h2>總借款餘額</h2>
       <div class="balance-box"><div class="amount secondary" id="total-loan-balance">0</div></div>
@@ -560,6 +560,37 @@
 
   function fmt(n) {
     return Math.round(n || 0).toLocaleString('en-US');
+  }
+
+  // 數字由前一次顯示的值動畫跳動到新值（首次載入時前值視為 0，呈現數字往上跳動的效果）
+  function animateStatValue(el, newValue) {
+    var target = Math.round(newValue || 0);
+    var prev = el.dataset.rawValue === undefined ? 0 : Number(el.dataset.rawValue);
+    el.dataset.rawValue = target;
+    if (el._statAnimFrame) { cancelAnimationFrame(el._statAnimFrame); el._statAnimFrame = null; }
+    if (el._statAnimTimeout) { clearTimeout(el._statAnimTimeout); el._statAnimTimeout = null; }
+    if (prev === target) { el.textContent = fmt(target); return; }
+    var duration = 800;
+    var startTime = null;
+    function finish() {
+      el.textContent = fmt(target);
+      el._statAnimFrame = null;
+      if (el._statAnimTimeout) { clearTimeout(el._statAnimTimeout); el._statAnimTimeout = null; }
+    }
+    function step(ts) {
+      if (startTime === null) startTime = ts;
+      var p = Math.min(1, (ts - startTime) / duration);
+      var eased = 1 - Math.pow(1 - p, 3);
+      el.textContent = fmt(prev + (target - prev) * eased);
+      if (p < 1) {
+        el._statAnimFrame = requestAnimationFrame(step);
+      } else {
+        finish();
+      }
+    }
+    el._statAnimFrame = requestAnimationFrame(step);
+    // 保險機制：萬一分頁在背景導致 requestAnimationFrame 被節流甚至不觸發，時間到了強制補上正確的最終值。
+    el._statAnimTimeout = setTimeout(finish, duration + 200);
   }
 
   function parseAmount(value) {
@@ -1553,16 +1584,16 @@
     document.getElementById('today-label').textContent = today;
 
     var stats = computeStats();
-    document.getElementById('available-today').textContent = fmt(stats.available_today);
+    animateStatValue(document.getElementById('available-today'), stats.available_today);
     document.getElementById('breakdown-cash').textContent = fmt(data.cash_on_hand);
     document.getElementById('breakdown-trust').textContent = fmt(data.trust_cash);
     document.getElementById('breakdown-credit').textContent = fmt(stats.total_available_credit);
-    document.getElementById('usable-bank-deposit').textContent = fmt(stats.usable_bank_deposit);
-    document.getElementById('bank-available').textContent = fmt(stats.total_available_credit);
+    animateStatValue(document.getElementById('usable-bank-deposit'), stats.usable_bank_deposit);
+    animateStatValue(document.getElementById('bank-available'), stats.total_available_credit);
     document.getElementById('bank-breakdown').textContent =
       '（額度合計 ' + fmt(stats.total_limit) + ' － 已動撥合計 ' + fmt(stats.total_drawn) + '）';
-    document.getElementById('total-loan-balance').textContent = fmt(stats.total_loan_balance);
-    document.getElementById('monthly-interest').textContent = fmt(stats.monthly_interest);
+    animateStatValue(document.getElementById('total-loan-balance'), stats.total_loan_balance);
+    animateStatValue(document.getElementById('monthly-interest'), stats.monthly_interest);
     document.getElementById('rental-monthly-interest').textContent = fmt(stats.rental_monthly_interest);
     document.getElementById('sale-monthly-interest').textContent = fmt(stats.sale_monthly_interest);
     document.getElementById('stable-fixed').textContent = fmt(data.monthly_fixed_expense);
@@ -1745,6 +1776,13 @@
     startAutoRefresh();
     loadAll();
   }
+
+  // 從背景分頁切回來時重新整理一次，讓上方五個數字有機會跳動更新
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible' && document.getElementById('app').style.display !== 'none') {
+      loadAll();
+    }
+  });
 
   function showLogin(message) {
     document.getElementById('login-screen').style.display = '';
