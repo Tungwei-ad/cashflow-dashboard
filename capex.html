@@ -373,12 +373,127 @@ select.inp { text-align: left; padding-right: 2px; }
 @media print {
   .actions, .tabs, .filters .linkbtn { display: none !important; }
 }
+
+/* ---------- Executive CAPEX dashboard ---------- */
+:root {
+  --page: #f3f6fa;
+  --surface: #ffffff;
+  --surface-2: #f6f8fb;
+  --ink: #11243d;
+  --ink-2: #52647a;
+  --muted: #7b899b;
+  --grid: #e4eaf1;
+  --axis: #cbd5e1;
+  --border: #dce4ed;
+  --shadow: 0 12px 30px -24px rgba(15,38,65,.48);
+  --accent-ink: #1d4ed8;
+  --input-bg: #ffffff;
+  --fund-own: #0f766e;
+  --fund-loan: #64748b;
+  --cash-level: #1d4ed8;
+}
+:root[data-theme="dark"] {
+  --page: #0b1220;
+  --surface: #111b2d;
+  --surface-2: #172338;
+  --ink: #f1f5f9;
+  --ink-2: #aab7c7;
+  --muted: #77879b;
+  --grid: #26344a;
+  --axis: #3a4a61;
+  --border: #2c3b50;
+  --shadow: 0 14px 36px -22px rgba(0,0,0,.72);
+  --accent-ink: #60a5fa;
+  --input-bg: #0e1828;
+  --fund-own: #5eead4;
+  --fund-loan: #94a3b8;
+  --cash-level: #60a5fa;
+}
+body {
+  background-color: var(--page);
+  background-image: linear-gradient(rgba(15,38,65,.018) 1px, transparent 1px), linear-gradient(90deg, rgba(15,38,65,.018) 1px, transparent 1px);
+  background-size: 48px 48px;
+  color: var(--ink);
+}
+.wrap { max-width: 1440px; padding: 24px 24px 60px; }
+.backlink { margin: 0 0 12px; }
+.backlink a { color: var(--ink-2) !important; font-weight: 600; }
+.backlink a:hover { color: var(--accent-ink) !important; }
+.top {
+  align-items: center; margin-bottom: 18px; padding: 17px 20px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow);
+}
+.brand { display: flex; align-items: center; gap: 13px; }
+.brand-mark {
+  width: 44px; height: 44px; border-radius: 9px; display: grid; place-items: center; flex: none;
+  color: #fff; background: linear-gradient(145deg, #1d4ed8, #0f766e);
+  box-shadow: 0 8px 18px -12px rgba(29,78,216,.75);
+}
+.brand-mark svg { width: 23px; height: 23px; }
+.eyebrow { color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: .15em; text-transform: uppercase; margin-bottom: 2px; }
+.top h1 { font-size: 21px; font-weight: 700; letter-spacing: 0; }
+.top .meta { margin-top: 2px; }
+.actions .btn { min-height: 34px; }
+.btn { border-radius: 6px; padding: 7px 12px; font-weight: 600; }
+.btn.primary { color: #fff; background: var(--accent-ink); border-color: var(--accent-ink); }
+.btn.primary:hover:not(:disabled) { color: #fff; background: color-mix(in srgb, var(--accent-ink) 86%, #000); }
+.tabs {
+  position: sticky; top: 8px; z-index: 20; gap: 2px; margin-bottom: 18px; padding: 5px;
+  border: 1px solid var(--border); border-radius: 9px; background: color-mix(in srgb, var(--surface) 94%, transparent);
+  box-shadow: 0 10px 26px -22px rgba(15,38,65,.5); backdrop-filter: blur(16px);
+}
+.tab { padding: 9px 14px; border-radius: 6px; border-bottom: 0; margin-bottom: 0; font-size: 13px; font-weight: 600; }
+.tab[aria-selected="true"] { color: var(--accent-ink); background: color-mix(in srgb, var(--accent-ink) 9%, var(--surface)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-ink) 18%, transparent); }
+.filters { margin-bottom: 16px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+.kpis { gap: 12px; margin-bottom: 18px; }
+.tile { position: relative; overflow: hidden; border-radius: 9px; padding: 17px 18px; box-shadow: var(--shadow); }
+.tile::before { content: ''; position: absolute; inset: 0 auto 0 0; width: 3px; background: var(--tile-accent, var(--accent-ink)); }
+.tile:nth-child(2) { --tile-accent: #64748b; }
+.tile:nth-child(3) { --tile-accent: #0f766e; }
+.tile:nth-child(4) { --tile-accent: #d97706; }
+.tile.hero { background: linear-gradient(118deg, color-mix(in srgb, var(--accent-ink) 8%, var(--surface)), var(--surface) 55%); }
+.t-label { font-size: 12px; font-weight: 700; letter-spacing: .025em; }
+.t-value { font-variant-numeric: tabular-nums; letter-spacing: -.035em; }
+.tile.hero .t-value { font-size: 46px; }
+.card { border-radius: 9px; padding: 19px 20px 21px; margin-bottom: 18px; box-shadow: var(--shadow); }
+.card-h { padding-bottom: 12px; margin-bottom: 14px; border-bottom: 1px solid var(--grid); }
+.card-h h2 { font-size: 15px; font-weight: 700; }
+.card-h h2::before { content: ''; display: inline-block; width: 3px; height: 14px; margin-right: 9px; border-radius: 2px; background: var(--accent-ink); vertical-align: -2px; }
+.two { gap: 18px; margin-bottom: 18px; }
+.seg { border-radius: 6px; }
+.seg button { border-radius: 4px; font-weight: 600; }
+.seg button[aria-pressed="true"] { color: var(--accent-ink); background: color-mix(in srgb, var(--accent-ink) 9%, var(--surface)); }
+.chip, .pick { border-radius: 6px; }
+.chart { min-height: 180px; }
+.chart .curband { fill: color-mix(in srgb, var(--accent-ink) 5%, var(--surface)); }
+.tbl-wrap { border: 1px solid var(--grid); border-radius: 7px; }
+th, td { padding-top: 8px; padding-bottom: 8px; }
+th { position: sticky; top: 0; z-index: 2; background: var(--surface-2); color: var(--ink-2); }
+tbody tr:hover td { background: color-mix(in srgb, var(--accent-ink) 4%, var(--surface)); }
+.inp { border-radius: 5px; padding: 5px 7px; }
+.foot { padding: 16px 18px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+#login-screen {
+  max-width: 420px !important; margin: 11vh auto 0 !important; padding: 26px 28px !important;
+  border-radius: 10px !important; box-shadow: 0 18px 50px -32px rgba(15,38,65,.6);
+}
+.login-head { display: flex; align-items: center; gap: 12px; }
+.login-head h2 { font-size: 18px !important; }
+@media (max-width: 700px) {
+  .wrap { padding: 16px 12px 40px; }
+  .top { padding: 15px; }
+  .tabs { overflow-x: auto; flex-wrap: nowrap; scrollbar-width: none; }
+  .tab { white-space: nowrap; }
+}
 </style>
 </head>
 <body>
 <div id="login-screen" class="card" style="max-width:420px;margin:80px auto;padding:22px 24px;border:1px solid var(--border);border-radius:12px;background:var(--surface);">
-  <div style="display:flex;justify-content:space-between;align-items:center;">
-    <h2 style="margin:0;font-size:18px;">資本支出 Dashboard</h2>
+  <div class="login-head">
+    <div class="brand-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19h16"/><path d="M6 16V9m6 7V5m6 11v-4"/><path d="m5 7 5-4 4 3 5-4"/></svg></div>
+    <div>
+      <div class="eyebrow">TUNGWEI · CAPITAL PLANNING</div>
+      <h2 style="margin:0;font-size:18px;">資本支出管理儀表板</h2>
+    </div>
   </div>
   <p style="color:var(--muted);font-size:13px;margin-top:10px;">請輸入與東煒可動用現金監控表相同的密碼。</p>
   <form id="login-form">
@@ -391,11 +506,15 @@ select.inp { text-align: left; padding-right: 2px; }
   </form>
 </div>
 <div class="wrap" id="app-root" style="display:none;">
-  <p style="margin:0 0 10px;"><a href="index.html" style="color:var(--accent-ink);font-size:13px;text-decoration:none;">&larr; 回到東煒可動用現金監控表</a></p>
+  <p class="backlink"><a href="index.html" style="color:var(--accent-ink);font-size:13px;text-decoration:none;">&larr; 回到現金監控總覽</a></p>
   <div class="top">
-    <div>
-      <h1>資本支出 Dashboard</h1>
-      <p class="meta" id="meta"></p>
+    <div class="brand">
+      <div class="brand-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19h16"/><path d="M6 16V9m6 7V5m6 11v-4"/><path d="m5 7 5-4 4 3 5-4"/></svg></div>
+      <div>
+        <div class="eyebrow">TUNGWEI · CAPITAL PLANNING</div>
+        <h1>資本支出管理儀表板</h1>
+        <p class="meta" id="meta"></p>
+      </div>
     </div>
     <div class="actions">
       <button class="btn" id="csvBtn" type="button" title="匯出明細，可用 Excel 開啟">匯出 CSV</button>
