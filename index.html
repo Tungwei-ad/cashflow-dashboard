@@ -12,123 +12,284 @@
   })();
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --page-bg: #f2f3f5;
+    --page-bg: #edf1f7;
+    --page-grid: rgba(2,132,199,0.07);
+    --page-glow-1: rgba(56,189,248,0.22);
+    --page-glow-2: rgba(129,140,248,0.16);
+    --card-bg: rgba(255,255,255,0.86);
     --surface: #ffffff;
-    --surface-alt: #f7f8fa;
-    --text-primary: #23262b;
-    --text-heading: #14161a;
-    --text-secondary: #565c66;
-    --text-muted: #8a8f98;
-    --border: #d7dbe0;
-    --border-light: #ebedf0;
-    --shadow: rgba(20,22,30,0.07);
-    --shadow-strong: rgba(20,22,30,0.10);
-    --chart-grid: #e6e7ea;
-    --chart-axis: #c7cbd1;
-    --good: #0ca30c;
-    --critical: #d03b3b;
-    --success-text: #006300;
-    --accent: #2563eb;
-    --accent-hover: #1d4ed8;
-    --accent-soft: rgba(37,99,235,0.12);
-    --radius: 12px;
+    --surface-alt: #f2f5fa;
+    --text-primary: #1b2333;
+    --text-heading: #0b1220;
+    --text-secondary: #4d5870;
+    --text-muted: #7c88a1;
+    --border: #cdd6e4;
+    --border-light: #e1e7f0;
+    --shadow: rgba(15,30,60,0.06);
+    --shadow-strong: rgba(15,30,60,0.14);
+    --chart-grid: #e2e7ef;
+    --chart-axis: #c0c9d8;
+    --good: #059669;
+    --critical: #e11d48;
+    --success-text: #047857;
+    --accent: #0284c7;
+    --accent-2: #6366f1;
+    --accent-hover: #0369a1;
+    --accent-soft: rgba(2,132,199,0.14);
+    --on-accent: #ffffff;
+    --kpi-green: #059669; --kpi-cyan: #0284c7; --kpi-violet: #7c3aed; --kpi-amber: #d97706; --kpi-rose: #e11d48;
+    --glow-alpha: 0%;
+    --mono: "JetBrains Mono", Consolas, "SFMono-Regular", Menlo, monospace;
+    --radius: 14px;
     --radius-sm: 8px;
   }
   :root[data-theme="dark"] {
-    --page-bg: #0c0d0f;
-    --surface: #1a1c1f;
-    --surface-alt: #232529;
-    --text-primary: #eceef0;
-    --text-heading: #ffffff;
-    --text-secondary: #b6bac1;
-    --text-muted: #8a8f98;
-    --border: #34373d;
-    --border-light: #2a2c31;
-    --shadow: rgba(0,0,0,0.35);
-    --shadow-strong: rgba(0,0,0,0.5);
-    --chart-grid: #2c2c2a;
-    --chart-axis: #383835;
-    --good: #0ca30c;
-    --critical: #d03b3b;
-    --success-text: #0ca30c;
-    --accent: #3b82f6;
-    --accent-hover: #60a5fa;
-    --accent-soft: rgba(59,130,246,0.18);
+    --page-bg: #050911;
+    --page-grid: rgba(56,189,248,0.06);
+    --page-glow-1: rgba(14,165,233,0.18);
+    --page-glow-2: rgba(139,92,246,0.15);
+    --card-bg: rgba(12,19,34,0.82);
+    --surface: #0c1322;
+    --surface-alt: #121c31;
+    --text-primary: #d8e3f5;
+    --text-heading: #f3f7ff;
+    --text-secondary: #9badca;
+    --text-muted: #6a7c9c;
+    --border: #22324f;
+    --border-light: #18253f;
+    --shadow: rgba(0,0,0,0.4);
+    --shadow-strong: rgba(0,0,0,0.6);
+    --chart-grid: #17243c;
+    --chart-axis: #2a3c5c;
+    --good: #22e39f;
+    --critical: #ff5470;
+    --success-text: #34f5b0;
+    --accent: #22d3ee;
+    --accent-2: #818cf8;
+    --accent-hover: #67e8f9;
+    --accent-soft: rgba(34,211,238,0.18);
+    --on-accent: #03141c;
+    --kpi-green: #2df5a8; --kpi-cyan: #38d6ff; --kpi-violet: #a78bfa; --kpi-amber: #ffb547; --kpi-rose: #ff6b95;
+    --glow-alpha: 55%;
   }
   * { box-sizing: border-box; }
   body {
-    font-family: "Segoe UI", "Microsoft JhengHei", sans-serif; background: var(--page-bg); margin: 0; padding: 28px;
+    font-family: "Segoe UI", "Microsoft JhengHei", sans-serif; margin: 0; padding: 28px;
     color: var(--text-primary); line-height: 1.5; -webkit-font-smoothing: antialiased;
-    transition: background 0.15s ease, color 0.15s ease;
+    background-color: var(--page-bg);
+    background-image:
+      radial-gradient(1100px 560px at 8% -12%, var(--page-glow-1), transparent 62%),
+      radial-gradient(900px 520px at 102% -4%, var(--page-glow-2), transparent 60%),
+      linear-gradient(var(--page-grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--page-grid) 1px, transparent 1px);
+    background-size: auto, auto, 34px 34px, 34px 34px;
+    background-attachment: fixed;
+    transition: background-color 0.2s ease, color 0.2s ease;
+    min-height: 100vh;
   }
-  .container { max-width: 1360px; margin: 0 auto; }
-  .app-header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px; padding-bottom: 18px; margin-bottom: 22px; border-bottom: 1px solid var(--border-light); }
-  h1 { font-size: 23px; font-weight: 700; letter-spacing: -0.01em; margin: 0 0 4px; color: var(--text-heading); }
-  .subtitle { color: var(--text-secondary); font-size: 13px; margin: 0; }
+  .container { max-width: 1440px; margin: 0 auto; }
+
+  /* ---------- Header ---------- */
+  .app-header {
+    display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;
+    padding: 16px 20px; margin-bottom: 22px; border-radius: var(--radius);
+    background: var(--card-bg); border: 1px solid var(--border-light);
+    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    box-shadow: 0 1px 2px var(--shadow), 0 14px 30px -20px var(--shadow-strong);
+    position: relative; overflow: hidden;
+  }
+  .app-header::after {
+    content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent), var(--accent-2), transparent);
+    background-size: 200% 100%; animation: scanline 6s linear infinite; opacity: 0.8;
+  }
+  @keyframes scanline { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+  .brand { display: flex; align-items: center; gap: 14px; }
+  .brand-mark {
+    width: 46px; height: 46px; border-radius: 12px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; color: var(--on-accent);
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    box-shadow: 0 6px 18px -6px var(--accent);
+  }
+  .brand-mark svg { width: 24px; height: 24px; }
+  .eyebrow {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.18em; color: var(--accent);
+    font-weight: 600; margin-bottom: 2px;
+  }
+  h1 { font-size: 22px; font-weight: 700; letter-spacing: 0.01em; margin: 0 0 2px; color: var(--text-heading); }
+  .subtitle { color: var(--text-secondary); font-size: 12.5px; margin: 0; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .subtitle #today-label, .clock { font-family: var(--mono); color: var(--text-primary); }
+  .clock {
+    padding: 1px 8px; border-radius: 6px; background: var(--accent-soft); color: var(--accent);
+    font-weight: 600; font-size: 12px; letter-spacing: 0.04em;
+  }
+  .nav-link {
+    text-decoration: none; display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px;
+    border-radius: var(--radius-sm); font-weight: 600; font-size: 13.5px;
+    background: var(--surface-alt); color: var(--text-primary); border: 1px solid var(--border);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, color 0.15s ease;
+  }
+  .nav-link:hover { border-color: var(--accent); color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+
+  /* ---------- Cards ---------- */
   .card {
-    background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border-light);
+    position: relative;
+    background: var(--card-bg); border-radius: var(--radius); border: 1px solid var(--border-light);
+    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
     padding: 22px 24px; margin-bottom: 22px;
-    box-shadow: 0 1px 2px var(--shadow), 0 10px 24px -16px var(--shadow-strong);
+    box-shadow: 0 1px 2px var(--shadow), 0 14px 30px -20px var(--shadow-strong);
   }
+  .card::before {
+    content: ''; position: absolute; top: -1px; left: 18px; right: 18px; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent); opacity: 0.55; pointer-events: none;
+  }
+  .card::after {
+    content: ''; position: absolute; inset: 5px; pointer-events: none; opacity: 0.5;
+    background:
+      linear-gradient(var(--accent), var(--accent)) top left / 12px 1.5px no-repeat,
+      linear-gradient(var(--accent), var(--accent)) top left / 1.5px 12px no-repeat,
+      linear-gradient(var(--accent), var(--accent)) bottom right / 12px 1.5px no-repeat,
+      linear-gradient(var(--accent), var(--accent)) bottom right / 1.5px 12px no-repeat;
+  }
+  .card .card::before, .card .card::after { display: none; }
   .card h2 {
     font-size: 15px; font-weight: 700; margin: 0 0 16px; color: var(--text-heading);
-    padding-bottom: 12px; border-bottom: 1px solid var(--border-light); letter-spacing: 0.01em;
+    padding-bottom: 12px; border-bottom: 1px solid var(--border-light); letter-spacing: 0.02em;
   }
-  .balance-box { display: flex; align-items: baseline; gap: 10px; }
-  .balance-box .amount { font-size: 34px; font-weight: 700; color: #0a7d3c; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+  .card h2::before {
+    content: ''; display: inline-block; width: 4px; height: 14px; border-radius: 2px; margin-right: 10px; vertical-align: -2px;
+    background: linear-gradient(var(--accent), var(--accent-2));
+    box-shadow: 0 0 10px color-mix(in srgb, var(--accent) var(--glow-alpha), transparent);
+  }
+  .balance-box { display: flex; align-items: baseline; gap: 8px; }
+  .balance-box .amount { font-size: 34px; font-weight: 700; color: var(--kpi-green); font-family: var(--mono); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
   .breakdown {
-    color: var(--text-muted); font-size: 12.5px; margin-top: 10px; line-height: 1.6;
+    color: var(--text-muted); font-size: 12px; margin-top: 10px; line-height: 1.65;
     background: var(--surface-alt); border-radius: var(--radius-sm); padding: 9px 12px;
+    border: 1px solid var(--border-light);
   }
+  .breakdown span[id], .breakdown strong { font-family: var(--mono); font-variant-numeric: tabular-nums; }
   .balance-box + .breakdown { margin-top: 12px; }
   .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
   .cols-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; align-items: start; margin-bottom: 22px; }
   .cols-2 > .card { margin-bottom: 0; min-width: 0; }
-  label { display: block; font-size: 12.5px; font-weight: 600; color: var(--text-secondary); margin-bottom: 5px; }
+
+  /* ---------- KPI cards ---------- */
+  .stats-row { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 14px; margin-bottom: 22px; }
+  .stats-row .card { margin-bottom: 0; min-width: 0; padding: 18px 18px 16px; overflow: hidden; }
+  .stats-row .card::before {
+    left: 0; right: 0; top: 0; height: 3px; opacity: 1;
+    background: linear-gradient(90deg, var(--kpi), color-mix(in srgb, var(--kpi) 10%, transparent));
+    box-shadow: 0 0 14px color-mix(in srgb, var(--kpi) var(--glow-alpha), transparent);
+  }
+  .stats-row .card::after { display: none; }
+  .stat-green { --kpi: var(--kpi-green); }
+  .stat-cyan { --kpi: var(--kpi-cyan); }
+  .stat-violet { --kpi: var(--kpi-violet); }
+  .stat-amber { --kpi: var(--kpi-amber); }
+  .stat-rose { --kpi: var(--kpi-rose); }
+  .kpi-glow {
+    position: absolute; right: -40px; top: -40px; width: 140px; height: 140px; border-radius: 50%; pointer-events: none;
+    background: radial-gradient(circle, color-mix(in srgb, var(--kpi) 22%, transparent), transparent 70%);
+  }
+  .kpi-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .kpi-head h2 { margin: 0; padding: 0; border: none; font-size: 13px; flex: 1; color: var(--text-secondary); line-height: 1.35; }
+  .kpi-head h2::before { display: none; }
+  .kpi-icon {
+    width: 32px; height: 32px; border-radius: 9px; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+    color: var(--kpi); background: color-mix(in srgb, var(--kpi) 14%, transparent);
+    border: 1px solid color-mix(in srgb, var(--kpi) 30%, transparent);
+  }
+  .kpi-icon svg { width: 17px; height: 17px; }
+  .kpi-tag {
+    font-family: var(--mono); font-size: 9.5px; font-weight: 700; letter-spacing: 0.12em; padding: 2px 6px; border-radius: 4px;
+    color: var(--kpi); border: 1px solid color-mix(in srgb, var(--kpi) 45%, transparent);
+  }
+  .stats-row .amount, .stats-row .amount.secondary {
+    font-size: clamp(21px, 1.75vw, 28px); color: var(--kpi);
+    text-shadow: 0 0 22px color-mix(in srgb, var(--kpi) var(--glow-alpha), transparent);
+    white-space: nowrap;
+  }
+  .unit { font-size: 11.5px; color: var(--text-muted); font-weight: 600; }
+  .kpi-meter {
+    height: 6px; border-radius: 999px; margin-top: 12px; overflow: hidden; display: flex;
+    background: color-mix(in srgb, var(--text-muted) 18%, transparent);
+  }
+  .kpi-meter.split { background: color-mix(in srgb, var(--kpi-amber) 55%, transparent); }
+  .kpi-meter-fill {
+    height: 100%; width: 0; border-radius: 999px;
+    background: linear-gradient(90deg, color-mix(in srgb, var(--kpi) 45%, transparent), var(--kpi));
+    box-shadow: 0 0 10px color-mix(in srgb, var(--kpi) var(--glow-alpha), transparent);
+    transition: width 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .kpi-meter-label {
+    display: flex; justify-content: space-between; gap: 8px; margin-top: 6px;
+    font-size: 11px; color: var(--text-muted);
+  }
+  .kpi-meter-label span:last-child { font-family: var(--mono); font-weight: 600; color: var(--text-primary); white-space: nowrap; }
+  .stats-row .breakdown { font-size: 11px; padding: 7px 10px; }
+  .amount.secondary { color: var(--kpi-cyan); font-size: 30px; }
+
+  /* ---------- Forms ---------- */
+  label { display: block; font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 5px; letter-spacing: 0.02em; }
   input[type=number], input[type=date], input[type=text], input[type=password], select {
     width: 100%; padding: 9px 11px; border: 1px solid var(--border); border-radius: var(--radius-sm); box-sizing: border-box;
     font-size: 14px; background: var(--surface); color: var(--text-primary); transition: border-color 0.12s ease, box-shadow 0.12s ease;
   }
-  input:focus, select:focus {
-    outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft);
-  }
+  input.thousands-input, input[type=number], input[type=date] { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  input:focus, select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  input[type=checkbox] { accent-color: var(--accent); width: 16px; height: 16px; }
   button {
-    background: var(--accent); color: #fff; border: none; border-radius: var(--radius-sm); font-weight: 600;
-    padding: 10px 20px; font-size: 14px; cursor: pointer; margin-top: 12px; transition: background 0.12s ease, transform 0.05s ease;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: var(--on-accent);
+    border: 1px solid transparent; border-radius: var(--radius-sm); font-weight: 700;
+    padding: 9px 18px; font-size: 13.5px; cursor: pointer; margin-top: 12px; letter-spacing: 0.02em;
+    transition: box-shadow 0.15s ease, transform 0.05s ease, filter 0.15s ease;
   }
-  button:hover { background: var(--accent-hover); }
+  button:hover { filter: brightness(1.08); box-shadow: 0 0 0 3px var(--accent-soft), 0 6px 18px -8px var(--accent); }
   button:active { transform: translateY(1px); }
-  button.danger { background: #dc2626; padding: 5px 12px; font-size: 12px; margin-top: 0; }
-  button.danger:hover { background: #b91c1c; }
-  button.secondary { background: var(--surface-alt); color: var(--text-primary); border: 1px solid var(--border); }
-  button.secondary:hover { background: var(--border-light); }
-  button:disabled { background: #aaa; cursor: not-allowed; }
+  button.danger { background: transparent; color: var(--critical); border: 1px solid color-mix(in srgb, var(--critical) 50%, transparent); padding: 4px 11px; font-size: 12px; margin-top: 0; }
+  button.danger:hover { background: var(--critical); color: #fff; box-shadow: none; }
+  button.secondary { background: var(--surface-alt); color: var(--text-secondary); border: 1px solid var(--border); font-weight: 600; }
+  button.secondary:hover { color: var(--accent); border-color: var(--accent); filter: none; }
+  button:disabled { background: #8a94a6; cursor: not-allowed; }
+
+  /* ---------- Tables ---------- */
   table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13.5px; }
   th, td { text-align: left; padding: 9px 8px; border-bottom: 1px solid var(--border-light); }
-  th { color: var(--text-muted); font-weight: 700; font-size: 11.5px; letter-spacing: 0.03em; text-transform: uppercase; border-bottom: 1.5px solid var(--border); }
+  td { font-variant-numeric: tabular-nums; }
+  th {
+    color: var(--text-muted); font-weight: 700; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase;
+    border-bottom: 1px solid var(--border); background: var(--surface-alt);
+  }
+  #forecast-table td:nth-child(1), #past-table td:nth-child(1),
+  #forecast-table td:nth-child(4), #forecast-table td:nth-child(5), #past-table td:nth-child(4) { font-family: var(--mono); font-size: 12.5px; }
   table:not(#loan-table) tbody tr { transition: background 0.1s ease; }
-  table:not(#loan-table) tbody tr:hover { background: var(--surface-alt); }
-  .income { color: #0a7d3c; font-weight: 600; }
-  .expense { color: #c0392b; font-weight: 600; }
-  .empty { color: var(--text-muted); font-size: 13px; padding: 22px 10px; text-align: center; border: 1px dashed var(--border); border-radius: var(--radius-sm); }
+  table:not(#loan-table) tbody tr:hover { background: var(--accent-soft); }
+  .income { color: var(--good); font-weight: 600; }
+  .expense { color: var(--critical); font-weight: 600; }
+  .empty {
+    color: var(--text-muted); font-size: 13px; padding: 22px 10px; text-align: center;
+    border: 1px dashed var(--border); border-radius: var(--radius-sm); font-family: var(--mono);
+  }
   .form-row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
   .form-row > div { flex: 1; min-width: 120px; }
-  .stats-row { display: flex; gap: 14px; margin-bottom: 22px; flex-wrap: wrap; }
-  .stats-row .card { flex: 1; margin-bottom: 0; min-width: 200px; padding: 18px 16px; }
-  .stats-row h2 { font-size: 13.5px; margin-bottom: 12px; padding-bottom: 10px; }
-  .stats-row .breakdown { font-size: 11.5px; }
-  .amount.secondary { color: #1d4ed8; font-size: 30px; }
-  .stats-row .amount { font-size: 27px; }
+
+  /* ---------- Charts ---------- */
+  svg text { font-family: var(--mono), "Microsoft JhengHei", sans-serif; }
   @keyframes barGrow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
   #cash-bar-chart .bar-segment, #cash-history-chart .bar-segment {
     transform-box: fill-box; transform-origin: bottom;
     animation: barGrow 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
   }
-  .stat-green { border-top: 3px solid #0a7d3c; }
-  .stat-blue { border-top: 3px solid #1d4ed8; }
-  .stat-amber { border-top: 3px solid #b45309; }
+  :root[data-theme="dark"] .bar-segment { filter: drop-shadow(0 0 5px rgba(56,214,255,0.25)); }
+  :root[data-theme="dark"] .scatter-point circle:last-child { filter: drop-shadow(0 0 4px rgba(56,214,255,0.45)); }
+  .chart-svg { max-width: 100%; height: auto; }
+  .table-scroll { overflow-x: auto; }
+
   td.checkbox-col { text-align: center; }
   #loan-table .loan-bank { min-width: 90px; }
   #loan-table .loan-credit-name { min-width: 200px; }
@@ -139,90 +300,124 @@
   #loan-table .loan-rate { min-width: 70px; }
   #loan-table th, #loan-table td { white-space: nowrap; }
   #loan-table .sticky-col { position: sticky; background: var(--surface); z-index: 2; }
-  #loan-table th.sticky-col { z-index: 3; }
+  #loan-table th.sticky-col { z-index: 3; background: var(--surface-alt); }
   #loan-table th.sticky-1 { white-space: normal; }
   #loan-table .sticky-1 { left: 0; width: 76px; }
   #loan-table .sticky-2 { left: 76px; width: 100px; }
   #loan-table .sticky-3 { left: 176px; width: 220px; }
   #loan-table .sticky-4 { left: 396px; width: 90px; }
   #loan-table .sticky-5 { left: 486px; width: 110px; box-shadow: 2px 0 4px var(--shadow); }
+  #loan-table tr.loan-row:hover td { background: var(--surface-alt); }
   .sortbtn {
-    border: 0; background: none; padding: 0; margin: 0; font: inherit; font-weight: 700; font-size: 11.5px;
-    letter-spacing: 0.03em; text-transform: uppercase; color: var(--text-muted); cursor: pointer;
+    border: 0; background: none; padding: 0; margin: 0; font: inherit; font-weight: 700; font-size: 11px;
+    letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); cursor: pointer;
     display: inline-flex; align-items: center; gap: 4px; white-space: normal; text-align: left;
   }
-  .sortbtn:hover { background: none; color: var(--text-primary); }
-  .sortbtn.on { color: var(--text-primary); }
+  .sortbtn:hover { background: none; color: var(--accent); box-shadow: none; filter: none; }
+  .sortbtn.on { color: var(--accent); }
   .sortbtn .sort-arrow { font-size: 9px; color: var(--text-muted); }
-  .sortbtn.on .sort-arrow { color: var(--text-primary); }
-  #loan-table .loan-note-row td { padding: 4px 8px 10px; border-bottom: 1.5px solid var(--border); background: var(--surface-alt); }
+  .sortbtn.on .sort-arrow { color: var(--accent); }
+  #loan-table .loan-note-row td { padding: 4px 8px 10px; border-bottom: 1px solid var(--border); background: var(--surface-alt); }
   #loan-table .loan-note-wrap { display: flex; align-items: center; }
   #loan-table .loan-note-row .loan-note { font-size: 12.5px; padding: 5px 8px; width: 100%; max-width: 640px; }
-  #loan-table .loan-note-label { color: var(--text-muted); font-size: 11.5px; margin-right: 8px; white-space: nowrap; }
+  #loan-table .loan-note-label { color: var(--text-muted); font-size: 11px; margin-right: 8px; white-space: nowrap; }
   .toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
   .toolbar button { margin-top: 0; }
-  .chart-svg { max-width: 100%; height: auto; }
-  .table-scroll { overflow-x: auto; }
+
+  @media (max-width: 1280px) { .stats-row { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
   @media (max-width: 900px) {
     .cols-2 { grid-template-columns: 1fr; }
+    .stats-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   }
   @media (max-width: 640px) {
     body { padding: 12px; }
     .card { padding: 16px; }
     .grid { grid-template-columns: 1fr 1fr; }
-    .balance-box .amount { font-size: 26px; }
-    .amount.secondary { font-size: 22px; }
+    .stats-row { grid-template-columns: 1fr; }
+    .stats-row .amount, .stats-row .amount.secondary { font-size: 24px; }
     h1 { font-size: 18px; }
     table:not(#loan-table) { font-size: 13px; }
   }
-  @media (max-width: 420px) {
-    .grid { grid-template-columns: 1fr; }
+  @media (max-width: 420px) { .grid { grid-template-columns: 1fr; } }
+
+  /* ---------- Login ---------- */
+  #login-screen { max-width: 400px; margin: 12vh auto 0; position: relative; padding: 28px; }
+  #login-screen .brand { margin-bottom: 4px; }
+  #login-screen h2 { font-size: 18px; }
+  #login-screen h2::before { display: none; }
+  #login-error { color: var(--critical); font-size: 13px; margin-top: 8px; display: none; }
+  #login-btn { width: 100%; }
+
+  /* ---------- Status / misc ---------- */
+  #sync-status {
+    font-size: 11.5px; color: var(--text-secondary); background: var(--surface-alt); border: 1px solid var(--border-light);
+    padding: 5px 12px 5px 10px; border-radius: 999px; font-family: var(--mono); display: inline-flex; align-items: center; gap: 7px;
   }
-  #login-screen { max-width: 380px; margin: 80px auto; position: relative; }
-  #login-error { color: #c0392b; font-size: 13px; margin-top: 8px; display: none; }
-  #sync-status { font-size: 11.5px; color: var(--text-muted); background: var(--surface-alt); border: 1px solid var(--border-light); padding: 5px 11px; border-radius: 999px; }
+  #sync-status::before {
+    content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--good);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--good) 60%, transparent); animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--good) 60%, transparent); }
+    70% { box-shadow: 0 0 0 7px transparent; }
+    100% { box-shadow: 0 0 0 0 transparent; }
+  }
   .pie-slice { cursor: pointer; transition: transform 0.15s ease, filter 0.15s ease; }
-  .pie-slice:hover { transform: translate(var(--dx, 0), var(--dy, 0)); filter: drop-shadow(0 4px 5px rgba(0,0,0,0.35)); }
+  .pie-slice:hover { transform: translate(var(--dx, 0), var(--dy, 0)); filter: drop-shadow(0 4px 6px rgba(0,0,0,0.35)); }
   #loan-pie-legend tr { transition: font-weight 0.1s ease; color: var(--text-primary); }
+  #loan-pie-legend td:nth-child(3), #loan-pie-legend td:nth-child(4) { font-family: var(--mono); font-size: 12px; }
   #loan-pie-legend tr.legend-row-hover td { font-weight: bold; }
   .bar-segment { transition: transform 0.15s ease, filter 0.15s ease; cursor: pointer; }
-  .bar-segment:hover { transform: translateY(-4px); filter: brightness(1.08) drop-shadow(0 3px 4px rgba(0,0,0,0.25)); }
+  .bar-segment:hover { transform: translateY(-4px); filter: brightness(1.12) drop-shadow(0 3px 6px rgba(0,0,0,0.3)); }
   .scatter-point { cursor: pointer; transform-box: fill-box; transform-origin: center; transition: transform 0.12s ease, filter 0.12s ease; }
-  .scatter-point:hover { transform: scale(1.5); filter: drop-shadow(0 2px 3px rgba(0,0,0,0.3)); }
+  .scatter-point:hover { transform: scale(1.5); filter: drop-shadow(0 2px 4px rgba(0,0,0,0.35)); }
   .theme-toggle-btn {
     background: var(--surface-alt); color: var(--text-primary); border: 1px solid var(--border);
     width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
     padding: 0; font-size: 15px; margin-top: 0;
   }
-  .theme-toggle-btn:hover { background: var(--border-light); }
+  .theme-toggle-btn:hover { border-color: var(--accent); filter: none; }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
 </style>
 </head>
 <body>
 
 <div id="login-screen" class="card">
-  <div style="display:flex; justify-content:space-between; align-items:center;">
-    <h2 style="margin-bottom:0; border-bottom:none; padding-bottom:0;">東煒可動用現金監控表</h2>
+  <div style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
+    <div class="brand">
+      <div class="brand-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20h18"/><path d="M6 16v-5"/><path d="M11 16V7"/><path d="M16 16v-8"/><path d="M4 9l5-4 5 3 6-5"/></svg></div>
+      <div>
+        <div class="eyebrow">TUNGWEI · TREASURY</div>
+        <h2 style="margin-bottom:0; border-bottom:none; padding-bottom:0;">東煒可動用現金監控表</h2>
+      </div>
+    </div>
     <button type="button" class="theme-toggle-btn" id="btn-theme-toggle-login">🌙</button>
   </div>
   <form id="login-form">
-    <div style="margin-bottom: 12px; margin-top: 18px;">
+    <div style="margin-bottom: 12px; margin-top: 22px;">
       <label>請輸入密碼</label>
       <input type="password" id="login-password" autofocus required>
     </div>
-    <button type="submit" id="login-btn">登入</button>
+    <button type="submit" id="login-btn">登入系統</button>
     <div id="login-error"></div>
   </form>
 </div>
 
 <div id="app" class="container" style="display:none;">
   <div class="app-header">
-    <div>
-      <h1>東煒可動用現金監控表</h1>
-      <div class="subtitle">今天日期：<span id="today-label"></span></div>
+    <div class="brand">
+      <div class="brand-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20h18"/><path d="M6 16v-5"/><path d="M11 16V7"/><path d="M16 16v-8"/><path d="M4 9l5-4 5 3 6-5"/></svg></div>
+      <div>
+        <div class="eyebrow">TUNGWEI · TREASURY MONITOR</div>
+        <h1>東煒可動用現金監控表</h1>
+        <div class="subtitle">今天日期：<span id="today-label"></span><span class="clock" id="live-clock"></span></div>
+      </div>
     </div>
     <div class="toolbar">
       <span id="sync-status"></span>
-      <a href="capex.html" class="secondary" style="text-decoration:none; display:inline-flex; align-items:center; padding:10px 20px; border-radius:var(--radius-sm); font-weight:600; font-size:14px; background:var(--surface-alt); color:var(--text-primary); border:1px solid var(--border);">資本支出 Dashboard</a>
+      <a href="capex.html" class="nav-link">資本支出 Dashboard →</a>
       <button type="button" class="theme-toggle-btn" id="btn-theme-toggle">🌙</button>
       <button type="button" class="secondary" id="btn-logout">登出</button>
     </div>
@@ -230,30 +425,45 @@
 
   <div class="stats-row">
     <div class="card stat-green">
-      <h2>今日可動用現金</h2>
-      <div class="balance-box"><div class="amount" id="available-today">0</div></div>
+      <div class="kpi-glow"></div>
+      <div class="kpi-head"><span class="kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h15a3 3 0 0 1 3 3v7a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3z"/><path d="M3 7l12-4v4"/><circle cx="16.5" cy="13.5" r="1.3"/></svg></span><h2>今日可動用現金</h2><span class="kpi-tag">LIVE</span></div>
+      <div class="balance-box"><div class="amount" id="available-today">0</div><span class="unit">元</span></div>
+      <div class="kpi-meter"><div class="kpi-meter-fill" id="meter-coverage"></div></div>
+      <div class="kpi-meter-label"><span>穩健水位達成率</span><span id="meter-coverage-text">—</span></div>
       <div class="breakdown">
         = 銀行存款 <span id="breakdown-cash">0</span> － 信託戶現金 <span id="breakdown-trust">0</span> + 銀行可動撥餘額 <span id="breakdown-credit">0</span>
       </div>
     </div>
-    <div class="card stat-blue">
-      <h2>可動用銀行存款</h2>
-      <div class="balance-box"><div class="amount secondary" id="usable-bank-deposit">0</div></div>
+    <div class="card stat-cyan">
+      <div class="kpi-glow"></div>
+      <div class="kpi-head"><span class="kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10l9-6 9 6"/><path d="M5 10v8M9.5 10v8M14.5 10v8M19 10v8"/><path d="M3 20h18"/></svg></span><h2>可動用銀行存款</h2></div>
+      <div class="balance-box"><div class="amount secondary" id="usable-bank-deposit">0</div><span class="unit">元</span></div>
+      <div class="kpi-meter"><div class="kpi-meter-fill" id="meter-deposit"></div></div>
+      <div class="kpi-meter-label"><span>佔可動用現金</span><span id="meter-deposit-text">—</span></div>
       <div class="breakdown">= 銀行存款 － 信託戶現金(不可動用)</div>
     </div>
-    <div class="card stat-blue">
-      <h2>銀行可動撥餘額(土融及不動產融資)</h2>
-      <div class="balance-box"><div class="amount secondary" id="bank-available">0</div></div>
+    <div class="card stat-violet">
+      <div class="kpi-glow"></div>
+      <div class="kpi-head"><span class="kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17l6-6 4 4 6-7"/><path d="M14 8h6v6"/></svg></span><h2>銀行可動撥餘額(土融及不動產融資)</h2></div>
+      <div class="balance-box"><div class="amount secondary" id="bank-available">0</div><span class="unit">元</span></div>
+      <div class="kpi-meter"><div class="kpi-meter-fill" id="meter-credit"></div></div>
+      <div class="kpi-meter-label"><span>計入額度剩餘比例</span><span id="meter-credit-text">—</span></div>
       <div class="breakdown">僅計入下方已勾選「計入」的借款 <span id="bank-breakdown"></span></div>
     </div>
     <div class="card stat-amber">
-      <h2>總借款餘額</h2>
-      <div class="balance-box"><div class="amount secondary" id="total-loan-balance">0</div></div>
+      <div class="kpi-glow"></div>
+      <div class="kpi-head"><span class="kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/></svg></span><h2>總借款餘額</h2></div>
+      <div class="balance-box"><div class="amount secondary" id="total-loan-balance">0</div><span class="unit">元</span></div>
+      <div class="kpi-meter"><div class="kpi-meter-fill" id="meter-util"></div></div>
+      <div class="kpi-meter-label"><span>全部額度使用率</span><span id="meter-util-text">—</span></div>
       <div class="breakdown">= Σ 各筆已動撥金額（不受「計入」勾選影響）</div>
     </div>
-    <div class="card stat-amber">
-      <h2>每月預估利息支出</h2>
-      <div class="balance-box"><div class="amount secondary" id="monthly-interest">0</div></div>
+    <div class="card stat-rose">
+      <div class="kpi-glow"></div>
+      <div class="kpi-head"><span class="kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="2.5"/><circle cx="17" cy="17" r="2.5"/><path d="M19 5L5 19"/></svg></span><h2>每月預估利息支出</h2></div>
+      <div class="balance-box"><div class="amount secondary" id="monthly-interest">0</div><span class="unit">元</span></div>
+      <div class="kpi-meter split" title="出租型 vs. 出售型 利息占比"><div class="kpi-meter-fill" id="meter-rental"></div></div>
+      <div class="kpi-meter-label"><span>加權平均利率 <b id="meter-rate-text" style="font-family:var(--mono); color:var(--text-primary);">—</b></span><span id="meter-rental-text">—</span></div>
       <div class="breakdown">= Σ（各筆已動撥金額 × 利率）/ 12（不受「計入」勾選影響）</div>
       <div class="breakdown" style="margin-top: 6px;">
         出租型資產借款：<strong id="rental-monthly-interest" style="color:var(--text-primary);">0</strong>
@@ -509,8 +719,8 @@
   // --- 主題（深色/淺色） ---
   function isDarkMode() { return document.documentElement.getAttribute('data-theme') === 'dark'; }
 
-  var CATEGORICAL_LIGHT = ['#2a78d6', '#1baf7a', '#eda100', '#008300', '#4a3aa7', '#e34948', '#e87ba4', '#eb6834'];
-  var CATEGORICAL_DARK = ['#3987e5', '#199e70', '#c98500', '#008300', '#9085e9', '#e66767', '#d55181', '#d95926'];
+  var CATEGORICAL_LIGHT = ['#0284c7', '#059669', '#d97706', '#16a34a', '#6d28d9', '#e11d48', '#db2777', '#ea580c'];
+  var CATEGORICAL_DARK = ['#38d6ff', '#2df5a8', '#ffb547', '#4ade80', '#a78bfa', '#ff6b95', '#f472b6', '#fb923c'];
   function categoricalColors() { return isDarkMode() ? CATEGORICAL_DARK : CATEGORICAL_LIGHT; }
 
   function bankColor(bankName) {
@@ -1317,8 +1527,8 @@
     var dark = isDarkMode();
     var pieLightL = dark ? 26 : 88;
     var pieDarkL = dark ? 58 : 50;
-    var pieDimmedBg = dark ? '#333330' : '#e5e7eb';
-    var pieDimmedFg = dark ? '#5c5c58' : '#b0b4bb';
+    var pieDimmedBg = dark ? '#1a2640' : '#e5e9f0';
+    var pieDimmedFg = dark ? '#34466a' : '#b0b8c6';
 
     groups.forEach(function (g, i) {
       var isDimmed = pieSelectedIndex !== null && pieSelectedIndex !== i;
@@ -1587,6 +1797,51 @@
     document.getElementById('past-tbody').innerHTML = rows.join('');
   }
 
+  // --- KPI 進度條（視覺化指標） ---
+  function setMeter(id, pct, color) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    var p = isFinite(pct) ? Math.max(0, Math.min(100, pct)) : 0;
+    el.style.width = p + '%';
+    el.style.background = color || '';
+  }
+  function setText(id, text) { var el = document.getElementById(id); if (el) el.textContent = text; }
+  function pctStr(v, d) { return isFinite(v) ? v.toFixed(d == null ? 1 : d) + '%' : '—'; }
+
+  function renderKpiMeters(stats) {
+    var coverage = stats.stable_cash_level > 0 ? stats.available_today / stats.stable_cash_level * 100 : NaN;
+    setMeter('meter-coverage', coverage, isFinite(coverage) ? (coverage >= 100 ? 'var(--good)' : 'var(--critical)') : null);
+    setText('meter-coverage-text', pctStr(coverage));
+
+    var depShare = stats.available_today > 0 ? stats.usable_bank_deposit / stats.available_today * 100 : NaN;
+    setMeter('meter-deposit', depShare);
+    setText('meter-deposit-text', pctStr(depShare));
+
+    var creditLeft = stats.total_limit > 0 ? stats.total_available_credit / stats.total_limit * 100 : NaN;
+    setMeter('meter-credit', creditLeft);
+    setText('meter-credit-text', pctStr(creditLeft));
+
+    var allLimit = data.bank_loans.reduce(function (s, l) { return s + l.limit; }, 0);
+    var util = allLimit > 0 ? stats.total_loan_balance / allLimit * 100 : NaN;
+    setMeter('meter-util', util, util >= 85 ? 'var(--critical)' : null);
+    setText('meter-util-text', pctStr(util));
+
+    var wavg = stats.total_loan_balance > 0 ? stats.monthly_interest * 12 / stats.total_loan_balance * 100 : NaN;
+    setText('meter-rate-text', pctStr(wavg, 2));
+    var ri = stats.rental_monthly_interest, si = stats.sale_monthly_interest;
+    var rentalShare = (ri + si) > 0 ? ri / (ri + si) * 100 : NaN;
+    setMeter('meter-rental', rentalShare);
+    setText('meter-rental-text', isFinite(rentalShare) ? '租 ' + rentalShare.toFixed(0) + '% ／ 售 ' + (100 - rentalShare).toFixed(0) + '%' : '—');
+  }
+
+  // --- 即時時鐘 ---
+  function tickClock() {
+    var el = document.getElementById('live-clock');
+    if (el) el.textContent = new Date().toLocaleTimeString('zh-TW', { hour12: false });
+  }
+  tickClock();
+  setInterval(tickClock, 1000);
+
   function render() {
     var today = todayISO();
     document.getElementById('today-label').textContent = today;
@@ -1604,6 +1859,7 @@
     animateStatValue(document.getElementById('monthly-interest'), stats.monthly_interest);
     document.getElementById('rental-monthly-interest').textContent = fmt(stats.rental_monthly_interest);
     document.getElementById('sale-monthly-interest').textContent = fmt(stats.sale_monthly_interest);
+    renderKpiMeters(stats);
     document.getElementById('stable-fixed').textContent = fmt(data.monthly_fixed_expense);
     document.getElementById('stable-interest').textContent = fmt(stats.monthly_interest);
     document.getElementById('stable-level').textContent = fmt(stats.stable_cash_level);
