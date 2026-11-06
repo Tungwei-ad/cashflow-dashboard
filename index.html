@@ -626,7 +626,6 @@
         <input type="date" id="cash-history-range-start" style="width: auto; padding: 6px 8px;">
         <span style="color: var(--text-muted);">～</span>
         <input type="date" id="cash-history-range-end" style="width: auto; padding: 6px 8px;">
-        <button type="button" class="secondary" id="btn-cash-history-range-clear" style="margin-top: 0;">預設（近 7 天）</button>
       </div>
     </div>
 
@@ -1155,24 +1154,26 @@
       '<div style="display:flex; align-items:center; gap:6px;"><span style="display:inline-block; width:11px; border-top:2px dashed var(--text-muted);"></span>穩健水位</div>' +
       '<div style="display:flex; align-items:center; gap:6px;"><span style="display:inline-block; width:11px; border-top:2.5px solid ' + COLOR_TREND + ';"></span>趨勢線（可動用現金）</div>';
 
-    // 柱狀寬度／間距會依容器寬度自動放大，資料筆數少時才不會整組柱子擠在左邊、右側留一大片空白；
+    // 柱狀寬度／間距會依容器寬度自動放大，平均撐滿整個寬度，資料筆數少時才不會整組柱子擠在左邊、右側留一大片空白；
     // 資料筆數多到連最小間距都放不下時，就維持最小間距，改用 .table-scroll 的左右捲動。
+    // 右側另外保留 trendMargin 空間給趨勢線文字，避免跟最後一天的數字重疊。
     var n = history.length;
     var baseBarW = 34, baseSlotPad = 30;
     var naturalSlot = baseBarW + baseSlotPad;
     var viewH = 340;
     var plotLeft = 90, plotTop = 108, plotBottom = viewH - 40;
+    var trendMargin = 48;
 
     var containerW = (svg.parentElement && svg.parentElement.clientWidth) || 0;
     var scale = 1;
-    if (n > 0 && containerW > plotLeft + n * naturalSlot + 20) {
-      scale = (containerW - plotLeft - 20) / (n * naturalSlot);
-      scale = Math.min(scale, 2.2);
+    if (n > 0 && containerW > plotLeft + trendMargin + n * naturalSlot) {
+      scale = (containerW - plotLeft - trendMargin) / (n * naturalSlot);
+      scale = Math.min(scale, 3.4);
     }
     var barW = baseBarW * scale;
     var slot = barW + baseSlotPad * scale;
     var plotRight = plotLeft + n * slot;
-    var viewW = Math.max(plotRight + 20, containerW);
+    var viewW = Math.max(plotRight + trendMargin, containerW);
     var plotH = plotBottom - plotTop;
 
     var maxVal = history.reduce(function (m, h) { return Math.max(m, h.available_cash); }, 0);
@@ -1262,9 +1263,10 @@
         var y0 = yScale(intercept);
         var y1 = yScale(intercept + slope * (n - 1));
         parts.push('<line x1="' + x0 + '" y1="' + y0 + '" x2="' + x1 + '" y2="' + y1 + '" stroke="' + COLOR_TREND + '" stroke-width="2.5" stroke-linecap="round"></line>');
-        var trendLabelX = x1 + 6;
-        var trendLabelY = y1 + (slope >= 0 ? 4 : -4);
-        parts.push('<text x="' + Math.min(trendLabelX, plotRight - 4) + '" y="' + trendLabelY + '" text-anchor="end" font-size="10" font-weight="700" fill="' + COLOR_TREND + '">趨勢</text>');
+        // 文字放在柱狀圖右側保留的 trendMargin 空間內，不跟最後一天的數字標籤同一欄，避免重疊
+        var trendLabelX = plotRight + trendMargin - 6;
+        var trendLabelY = Math.min(Math.max(y1, plotTop + 10), plotBottom - 4);
+        parts.push('<text x="' + trendLabelX + '" y="' + trendLabelY + '" text-anchor="end" font-size="10" font-weight="700" fill="' + COLOR_TREND + '">趨勢</text>');
       }
     }
 
@@ -1282,14 +1284,6 @@
     cashHistoryRangeEnd = e.target.value || null;
     renderCashHistoryChart();
   });
-  document.getElementById('btn-cash-history-range-clear').addEventListener('click', function () {
-    cashHistoryRangeStart = null;
-    cashHistoryRangeEnd = null;
-    document.getElementById('cash-history-range-start').value = '';
-    document.getElementById('cash-history-range-end').value = '';
-    renderCashHistoryChart();
-  });
-
   var cashHistoryResizeTimer = null;
   window.addEventListener('resize', function () {
     clearTimeout(cashHistoryResizeTimer);
