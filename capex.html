@@ -557,6 +557,7 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-ink) 4%, var(--s
         <span class="flabel">案件</span>
         <div class="chips" id="chips"></div>
         <button type="button" class="linkbtn" id="allBtn">全選</button>
+        <button type="button" class="linkbtn" id="noneBtn">全刪</button>
       </div>
     </div>
 
@@ -2324,6 +2325,7 @@ $('resetBtn').addEventListener('click', async () => {
 });
 $('csvBtn').addEventListener('click', exportCSV);
 $('allBtn').addEventListener('click', () => { state.sel = new Set(projects.map(p => p.id)); renderChips(); recalc(); });
+$('noneBtn').addEventListener('click', () => { state.sel = new Set(); renderChips(); recalc(); });
 bindSeg('gran', 'gran');
 bindSeg('unit', 'unit');
 bindSeg('colMode', 'colMode');
