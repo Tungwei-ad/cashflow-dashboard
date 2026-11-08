@@ -18,8 +18,8 @@
   --border: rgba(11, 11, 11, 0.10);
   --shadow: 0 6px 24px rgba(11, 11, 11, 0.10);
   --s0: #a3a29b;
-  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100;
-  --s5: #e87ba4; --s6: #008300; --s7: #6250d6; --s8: #e34948;
+  --s1: #3f6fb0; --s2: #c17a3f; --s3: #1f9c86; --s4: #b8932a;
+  --s5: #ad5f8c; --s6: #5c8f49; --s7: #7a63b5; --s8: #b14a42;
   --warn: #fab219;
   --critical: #d03b3b;
   --accent-ink: #1c5cab;
@@ -42,8 +42,8 @@
     --border: rgba(255, 255, 255, 0.10);
     --shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
     --s0: #6b6a65;
-    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
-    --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
+    --s1: #6a93cf; --s2: #b87d46; --s3: #0f9683; --s4: #ad8a30;
+    --s5: #ad5f8c; --s6: #5c8f49; --s7: #9a84d1; --s8: #c96a60;
     --accent-ink: #86b6ef;
     --input-bg: #121211;
     --fund-own: #d9d8d2;
@@ -64,8 +64,8 @@
   --border: rgba(255, 255, 255, 0.10);
   --shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
   --s0: #6b6a65;
-  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
-  --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
+  --s1: #6a93cf; --s2: #b87d46; --s3: #0f9683; --s4: #ad8a30;
+  --s5: #ad5f8c; --s6: #5c8f49; --s7: #9a84d1; --s8: #c96a60;
   --accent-ink: #86b6ef;
   --input-bg: #121211;
   --fund-own: #d9d8d2;
@@ -454,6 +454,37 @@ body {
 }
 .tab { padding: 9px 14px; border-radius: 6px; border-bottom: 0; margin-bottom: 0; font-size: 13px; font-weight: 600; }
 .tab[aria-selected="true"] { color: var(--accent-ink); background: color-mix(in srgb, var(--accent-ink) 9%, var(--surface)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-ink) 18%, transparent); }
+
+/* ---------- Fixed dark header (title + tabs) ---------- */
+.app-topbar {
+  position: fixed; top: 0; left: 28px; right: 28px; max-width: 1440px; margin: 0 auto;
+  z-index: 100; background: #0a1322; border: 1px solid rgba(255,255,255,.08); border-top: none;
+  box-shadow: 0 16px 34px -18px rgba(0,0,0,.55);
+}
+.app-topbar .top {
+  background: transparent; border: none; border-radius: 0; box-shadow: none; margin-bottom: 0;
+  padding: 14px 16px;
+}
+.app-topbar .eyebrow { color: #7dd3fc; }
+.app-topbar h1 { color: #f4f7fb; }
+.app-topbar .meta { color: rgba(226,232,240,.68); }
+.app-topbar .savestat { color: rgba(226,232,240,.68); }
+.app-topbar .btn {
+  background: rgba(255,255,255,.06); color: rgba(226,232,240,.9); border-color: rgba(255,255,255,.14);
+}
+.app-topbar .btn:hover:not(:disabled) { background: rgba(255,255,255,.12); color: #fff; }
+.app-topbar .btn.primary { background: var(--accent-ink); color: #fff; border-color: var(--accent-ink); }
+.app-topbar .tabs {
+  position: static; top: auto; margin-bottom: 0; padding: 8px 10px; border: none; border-radius: 0;
+  background: transparent; box-shadow: none; backdrop-filter: none;
+  border-top: 1px solid rgba(255,255,255,.08);
+}
+.app-topbar .tab { color: rgba(226,232,240,.78); }
+.app-topbar .tab:hover { color: #fff; }
+.app-topbar .tab[aria-selected="true"] {
+  color: #fff; background: rgba(96,165,250,.18); box-shadow: inset 0 0 0 1px rgba(96,165,250,.35);
+}
+.backlink { margin: 14px 0 12px; }
 .filters { margin-bottom: 16px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
 .kpis { gap: 12px; margin-bottom: 18px; }
 .tile { position: relative; overflow: hidden; border-radius: 9px; padding: 17px 18px; box-shadow: var(--shadow); }
@@ -493,6 +524,7 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-ink) 4%, var(--s
   .top { padding: 15px; }
   .tabs { overflow-x: auto; flex-wrap: nowrap; scrollbar-width: none; }
   .tab { white-space: nowrap; }
+  .app-topbar { left: 12px; right: 12px; }
 }
 </style>
 </head>
@@ -516,31 +548,34 @@ tbody tr:hover td { background: color-mix(in srgb, var(--accent-ink) 4%, var(--s
   </form>
 </div>
 <div class="wrap" id="app-root" style="display:none;">
-  <p class="backlink"><a href="index.html" style="color:var(--accent-ink);font-size:13px;text-decoration:none;">&larr; 回到現金監控總覽</a></p>
-  <div class="top">
-    <div class="brand">
-      <div class="brand-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19h16"/><path d="M6 16V9m6 7V5m6 11v-4"/><path d="m5 7 5-4 4 3 5-4"/></svg></div>
-      <div>
-        <div class="eyebrow">TUNGWEI · CAPITAL PLANNING</div>
-        <h1>資本支出管理儀表板</h1>
-        <p class="meta" id="meta"></p>
+  <div class="app-topbar" aria-label="儀表板標頭與頁籤">
+    <div class="top">
+      <div class="brand">
+        <div class="brand-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19h16"/><path d="M6 16V9m6 7V5m6 11v-4"/><path d="m5 7 5-4 4 3 5-4"/></svg></div>
+        <div>
+          <div class="eyebrow">TUNGWEI · CAPITAL PLANNING</div>
+          <h1>資本支出管理儀表板</h1>
+          <p class="meta" id="meta"></p>
+        </div>
+      </div>
+      <div class="actions">
+        <button class="btn" id="csvBtn" type="button" title="匯出明細，可用 Excel 開啟">匯出 CSV</button>
+        <button class="btn" id="resetBtn" type="button" title="捨棄尚未儲存的修改，重新從資料庫讀取">重新讀取</button>
+        <button class="btn" id="themeBtn" type="button"></button>
+        <div class="savestat" id="saveStat" aria-live="polite"></div>
       </div>
     </div>
-    <div class="actions">
-      <button class="btn" id="csvBtn" type="button" title="匯出明細，可用 Excel 開啟">匯出 CSV</button>
-      <button class="btn" id="resetBtn" type="button" title="捨棄尚未儲存的修改，重新從資料庫讀取">重新讀取</button>
-      <button class="btn" id="themeBtn" type="button"></button>
-      <div class="savestat" id="saveStat" aria-live="polite"></div>
-    </div>
+
+    <nav class="tabs" role="tablist" aria-label="頁面">
+      <button class="tab" type="button" role="tab" id="tabbtn-view" data-tab="view" aria-controls="tab-view" aria-selected="true">總覽</button>
+      <button class="tab" type="button" role="tab" id="tabbtn-edit" data-tab="edit" aria-controls="tab-edit" aria-selected="false">資料填寫-CAPEX</button>
+      <button class="tab" type="button" role="tab" id="tabbtn-rent" data-tab="rent" aria-controls="tab-rent" aria-selected="false">資料填寫-租金</button>
+      <button class="tab" type="button" role="tab" id="tabbtn-sale" data-tab="sale" aria-controls="tab-sale" aria-selected="false">資料填寫-銷售</button>
+      <button class="tab" type="button" role="tab" id="tabbtn-simloan" data-tab="simloan" aria-controls="tab-simloan" aria-selected="false">模擬貸款</button>
+    </nav>
   </div>
 
-  <nav class="tabs" role="tablist" aria-label="頁面">
-    <button class="tab" type="button" role="tab" id="tabbtn-view" data-tab="view" aria-controls="tab-view" aria-selected="true">總覽</button>
-    <button class="tab" type="button" role="tab" id="tabbtn-edit" data-tab="edit" aria-controls="tab-edit" aria-selected="false">資料填寫-CAPEX</button>
-    <button class="tab" type="button" role="tab" id="tabbtn-rent" data-tab="rent" aria-controls="tab-rent" aria-selected="false">資料填寫-租金</button>
-    <button class="tab" type="button" role="tab" id="tabbtn-sale" data-tab="sale" aria-controls="tab-sale" aria-selected="false">資料填寫-銷售</button>
-    <button class="tab" type="button" role="tab" id="tabbtn-simloan" data-tab="simloan" aria-controls="tab-simloan" aria-selected="false">模擬貸款</button>
-  </nav>
+  <p class="backlink"><a href="index.html" style="color:var(--accent-ink);font-size:13px;text-decoration:none;">&larr; 回到現金監控總覽</a></p>
 
   <!-- ===================== 總覽 ===================== -->
   <div id="tab-view" role="tabpanel" aria-labelledby="tabbtn-view">
@@ -2427,9 +2462,18 @@ function showLogin(message) {
     err.style.display = 'block';
   }
 }
+// 標頭與頁籤改為固定在視窗頂端，量測實際高度讓內容往下留出對應空間，避免被蓋住
+function syncTopbarOffset() {
+  const bar = document.querySelector('.app-topbar'), root = $('app-root');
+  if (!bar || !root) return;
+  root.style.paddingTop = (bar.offsetHeight + 18) + 'px';
+}
+window.addEventListener('resize', () => requestAnimationFrame(syncTopbarOffset));
+
 async function start() {
   $('login-screen').style.display = 'none';
   $('app-root').style.display = '';
+  requestAnimationFrame(syncTopbarOffset);
   try {
     await bootData();
   } catch (e) {
