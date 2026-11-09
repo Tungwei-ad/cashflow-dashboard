@@ -657,7 +657,7 @@
     </div>
     <div class="breakdown" id="cash-bar-status" style="margin-top: 8px; font-weight: 600;"></div>
 
-    <div class="breakdown" style="margin: 14px 0 10px;">預設顯示今天往前推 7 天，不含週六、週日；也可自選日期區間（仍會略過週六、週日）。長條為「可動用銀行存款＋銀行可動撥餘額」疊加後的每日可動用現金合計。</div>
+    <div class="breakdown" style="margin: 14px 0 10px;">預設顯示今天往前推 20 天，不含週六、週日；也可自選日期區間（仍會略過週六、週日）。長條為「可動用銀行存款＋銀行可動撥餘額」疊加後的每日可動用現金合計。</div>
     <div id="cash-history-legend" style="display:flex; gap:18px; flex-wrap:wrap; font-size:12.5px; margin-bottom:10px;"></div>
     <div class="table-scroll">
       <svg id="cash-history-chart" width="1200" height="300" viewBox="0 0 1200 300" style="display:block; height:auto;"></svg>
@@ -1134,7 +1134,7 @@
   function getDisplayedCashHistory() {
     var today = todayISO();
     var rangeEnd = cashHistoryRangeEnd || today;
-    var rangeStart = cashHistoryRangeStart || addDaysISO(rangeEnd, -6);
+    var rangeStart = cashHistoryRangeStart || addDaysISO(rangeEnd, -19);
     if (rangeStart > rangeEnd) { var t = rangeStart; rangeStart = rangeEnd; rangeEnd = t; }
     return data.cash_history.filter(function (h) {
       return h.date >= rangeStart && h.date <= rangeEnd && !isWeekendISO(h.date);
