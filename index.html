@@ -677,23 +677,24 @@
         <div id="rate-scatter-legend" style="font-size: 13px;"></div>
         <div id="rate-scatter-detail" style="font-size: 13px; margin-top: 14px; padding: 10px 12px; background: var(--surface-alt); border-radius: 6px; display: none;"></div>
       </div>
-      <div style="flex-shrink: 0; min-width: 120px; max-width: 140px; padding-top: 0;">
+      <div style="flex: 1 1 auto; min-width: 8px;"></div>
+      <div style="flex-shrink: 0; min-width: 150px; max-width: 185px; padding-top: 0;">
         <div style="font-size: 12px; color: var(--text-muted); font-weight: 600; margin-bottom: 8px; text-align: center;">借款性質分布（已動撥）</div>
-        <svg id="nature-pie-mini" class="chart-svg" width="110" height="110" viewBox="0 0 140 140" style="display: block; margin: 0 auto 10px;"></svg>
+        <svg id="nature-pie-mini" class="chart-svg" width="135" height="135" viewBox="0 0 140 140" style="display: block; margin: 0 auto 10px;"></svg>
         <div id="nature-pie-mini-legend" style="font-size: 12px;"></div>
         <div class="empty" id="nature-pie-mini-empty" style="display:none; font-size: 12px; padding: 10px;">無資料</div>
         <div id="nature-pie-mini-detail" style="font-size: 11.5px; margin-top: 10px; padding: 8px 10px; background: var(--surface-alt); border-radius: 6px; display: none;"></div>
       </div>
-      <div style="flex-shrink: 0; min-width: 120px; max-width: 140px; padding-top: 0;">
+      <div style="flex-shrink: 0; min-width: 150px; max-width: 185px; padding-top: 0;">
         <div style="font-size: 12px; color: var(--text-muted); font-weight: 600; margin-bottom: 8px; text-align: center;">借款性質分布（額度）</div>
-        <svg id="nature-pie-mini-limit" class="chart-svg" width="110" height="110" viewBox="0 0 140 140" style="display: block; margin: 0 auto 10px;"></svg>
+        <svg id="nature-pie-mini-limit" class="chart-svg" width="135" height="135" viewBox="0 0 140 140" style="display: block; margin: 0 auto 10px;"></svg>
         <div id="nature-pie-mini-limit-legend" style="font-size: 12px;"></div>
         <div class="empty" id="nature-pie-mini-limit-empty" style="display:none; font-size: 12px; padding: 10px;">無資料</div>
         <div id="nature-pie-mini-limit-detail" style="font-size: 11.5px; margin-top: 10px; padding: 8px 10px; background: var(--surface-alt); border-radius: 6px; display: none;"></div>
       </div>
-      <div style="flex-shrink: 0; min-width: 120px; max-width: 140px; padding-top: 0;">
+      <div style="flex-shrink: 0; min-width: 150px; max-width: 185px; padding-top: 0;">
         <div style="font-size: 12px; color: var(--text-muted); font-weight: 600; margin-bottom: 8px; text-align: center;">資產性質分布（已動撥）</div>
-        <svg id="asset-type-pie-mini" class="chart-svg" width="110" height="110" viewBox="0 0 140 140" style="display: block; margin: 0 auto 10px;"></svg>
+        <svg id="asset-type-pie-mini" class="chart-svg" width="135" height="135" viewBox="0 0 140 140" style="display: block; margin: 0 auto 10px;"></svg>
         <div id="asset-type-pie-mini-legend" style="font-size: 12px;"></div>
         <div class="empty" id="asset-type-pie-mini-empty" style="display:none; font-size: 12px; padding: 10px;">無資料</div>
         <div id="asset-type-pie-mini-detail" style="font-size: 11.5px; margin-top: 10px; padding: 8px 10px; background: var(--surface-alt); border-radius: 6px; display: none;"></div>
@@ -1578,9 +1579,12 @@
         var sg = groups[selectedKey];
         var selPct = (sg.value / total * 100).toFixed(1);
         var rows = sg.loans.slice().sort(function (a, b) { return b[metricKey] - a[metricKey]; }).map(function (l) {
-          return '<div style="display:flex; justify-content:space-between; gap:8px; padding:2px 0;">' +
-            '<span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + esc(l.bank || '-') + ' · ' + esc(l.credit_name || '-') + '</span>' +
-            '<span style="color:var(--text-muted); white-space:nowrap;">' + fmt(l[metricKey]) + '</span>' +
+          return '<div style="padding:4px 0; border-bottom:1px solid var(--border-light);">' +
+            '<div style="font-weight:600;">' + esc(l.credit_name || '-') + '</div>' +
+            '<div style="display:flex; justify-content:space-between; gap:8px; color:var(--text-muted);">' +
+              '<span>' + esc(l.bank || '-') + '</span>' +
+              '<span style="white-space:nowrap;">' + fmt(l[metricKey]) + '</span>' +
+            '</div>' +
           '</div>';
         }).join('');
         detailEl.style.display = '';
