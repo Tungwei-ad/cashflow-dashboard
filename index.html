@@ -187,11 +187,7 @@
     box-shadow: 0 0 14px color-mix(in srgb, var(--kpi) var(--glow-alpha), transparent);
   }
   .stats-row .card::after { display: none; }
-  .stat-green { --kpi: var(--kpi-green); }
-  .stat-cyan { --kpi: var(--kpi-cyan); }
-  .stat-violet { --kpi: var(--kpi-violet); }
-  .stat-amber { --kpi: var(--kpi-amber); }
-  .stat-rose { --kpi: var(--kpi-rose); }
+  .stat-green, .stat-cyan, .stat-violet, .stat-amber, .stat-rose { --kpi: var(--accent); }
   .kpi-glow {
     position: absolute; right: -40px; top: -40px; width: 140px; height: 140px; border-radius: 50%; pointer-events: none;
     background: radial-gradient(circle, color-mix(in srgb, var(--kpi) 22%, transparent), transparent 70%);

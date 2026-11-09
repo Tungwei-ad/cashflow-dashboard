@@ -488,10 +488,7 @@ body {
 .filters { margin-bottom: 16px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
 .kpis { gap: 12px; margin-bottom: 18px; }
 .tile { position: relative; overflow: hidden; border-radius: 9px; padding: 17px 18px; box-shadow: var(--shadow); }
-.tile::before { content: ''; position: absolute; inset: 0 auto 0 0; width: 3px; background: var(--tile-accent, var(--accent-ink)); }
-.tile:nth-child(2) { --tile-accent: #64748b; }
-.tile:nth-child(3) { --tile-accent: #0f766e; }
-.tile:nth-child(4) { --tile-accent: #d97706; }
+.tile::before { content: ''; position: absolute; inset: 0 auto 0 0; width: 3px; background: var(--accent-ink); }
 .tile.hero { background: linear-gradient(118deg, color-mix(in srgb, var(--accent-ink) 8%, var(--surface)), var(--surface) 55%); }
 .t-label { font-size: 12px; font-weight: 700; letter-spacing: .025em; }
 .t-value { font-variant-numeric: tabular-nums; letter-spacing: -.035em; }
