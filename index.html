@@ -1484,14 +1484,14 @@
   // --- 借款性質分布小圓餅圖（與利率 vs. 已動撥分布圖共用銀行篩選） ---
   var miniPieSelected = {};
   var miniPieConfigs = [
-    { metricKey: 'drawn', metricLabel: '已動撥', svgId: 'nature-pie-mini', legendId: 'nature-pie-mini-legend', emptyId: 'nature-pie-mini-empty', detailId: 'nature-pie-mini-detail', groupField: 'nature' },
-    { metricKey: 'limit', metricLabel: '額度', svgId: 'nature-pie-mini-limit', legendId: 'nature-pie-mini-limit-legend', emptyId: 'nature-pie-mini-limit-empty', detailId: 'nature-pie-mini-limit-detail', groupField: 'nature' },
-    { metricKey: 'drawn', metricLabel: '已動撥', svgId: 'asset-type-pie-mini', legendId: 'asset-type-pie-mini-legend', emptyId: 'asset-type-pie-mini-empty', detailId: 'asset-type-pie-mini-detail', groupField: 'asset_type' }
+    { metricKey: 'drawn', metricLabel: '已動撥', svgId: 'nature-pie-mini', legendId: 'nature-pie-mini-legend', emptyId: 'nature-pie-mini-empty', detailId: 'nature-pie-mini-detail', groupField: 'nature', totalLabel: null },
+    { metricKey: 'limit', metricLabel: '額度', svgId: 'nature-pie-mini-limit', legendId: 'nature-pie-mini-limit-legend', emptyId: 'nature-pie-mini-limit-empty', detailId: 'nature-pie-mini-limit-detail', groupField: 'nature', totalLabel: '總額度' },
+    { metricKey: 'drawn', metricLabel: '已動撥', svgId: 'asset-type-pie-mini', legendId: 'asset-type-pie-mini-legend', emptyId: 'asset-type-pie-mini-empty', detailId: 'asset-type-pie-mini-detail', groupField: 'asset_type', totalLabel: '已動撥總數' }
   ];
 
   function renderNaturePieMini() {
     miniPieConfigs.forEach(function (c) {
-      renderNaturePieMiniFor(c.metricKey, c.metricLabel, c.svgId, c.legendId, c.emptyId, c.detailId, c.groupField);
+      renderNaturePieMiniFor(c.metricKey, c.metricLabel, c.svgId, c.legendId, c.emptyId, c.detailId, c.groupField, c.totalLabel);
     });
   }
 
@@ -1509,7 +1509,7 @@
     if (legendEl) legendEl.addEventListener('click', handleMiniPieClick);
   });
 
-  function renderNaturePieMiniFor(metricKey, metricLabel, svgId, legendId, emptyId, detailId, groupField) {
+  function renderNaturePieMiniFor(metricKey, metricLabel, svgId, legendId, emptyId, detailId, groupField, totalLabel) {
     var svg = document.getElementById(svgId);
     var legend = document.getElementById(legendId);
     var emptyEl = document.getElementById(emptyId);
@@ -1570,6 +1570,15 @@
         '</div>'
       );
     });
+
+    if (totalLabel) {
+      legendParts.push(
+        '<div style="display:flex; justify-content:space-between; gap:6px; padding-top:6px; margin-top:4px; border-top:1px solid var(--border-light); font-weight:700;">' +
+          '<span>' + esc(totalLabel) + '</span>' +
+          '<span style="font-family:var(--mono); white-space:nowrap;">' + fmt(total) + '</span>' +
+        '</div>'
+      );
+    }
 
     svg.innerHTML = svgParts.join('');
     legend.innerHTML = legendParts.join('');
