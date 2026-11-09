@@ -689,6 +689,12 @@
         <div id="nature-pie-mini-limit-legend" style="font-size: 12px;"></div>
         <div class="empty" id="nature-pie-mini-limit-empty" style="display:none; font-size: 12px; padding: 10px;">無資料</div>
       </div>
+      <div style="min-width: 160px; max-width: 220px; padding-top: 0;">
+        <div style="font-size: 12px; color: var(--text-muted); font-weight: 600; margin-bottom: 8px; text-align: center;">資產性質分布（已動撥）</div>
+        <svg id="asset-type-pie-mini" class="chart-svg" width="140" height="140" viewBox="0 0 140 140" style="display: block; margin: 0 auto 10px;"></svg>
+        <div id="asset-type-pie-mini-legend" style="font-size: 12px;"></div>
+        <div class="empty" id="asset-type-pie-mini-empty" style="display:none; font-size: 12px; padding: 10px;">無資料</div>
+      </div>
     </div>
     <div class="empty" id="rate-scatter-empty" style="display:none;">目前沒有借款資料。</div>
   </div>
@@ -1473,11 +1479,12 @@
 
   // --- 借款性質分布小圓餅圖（與利率 vs. 已動撥分布圖共用銀行篩選） ---
   function renderNaturePieMini() {
-    renderNaturePieMiniFor('drawn', '已動撥', 'nature-pie-mini', 'nature-pie-mini-legend', 'nature-pie-mini-empty');
-    renderNaturePieMiniFor('limit', '額度', 'nature-pie-mini-limit', 'nature-pie-mini-limit-legend', 'nature-pie-mini-limit-empty');
+    renderNaturePieMiniFor('drawn', '已動撥', 'nature-pie-mini', 'nature-pie-mini-legend', 'nature-pie-mini-empty', 'nature');
+    renderNaturePieMiniFor('limit', '額度', 'nature-pie-mini-limit', 'nature-pie-mini-limit-legend', 'nature-pie-mini-limit-empty', 'nature');
+    renderNaturePieMiniFor('drawn', '已動撥', 'asset-type-pie-mini', 'asset-type-pie-mini-legend', 'asset-type-pie-mini-empty', 'asset_type');
   }
 
-  function renderNaturePieMiniFor(metricKey, metricLabel, svgId, legendId, emptyId) {
+  function renderNaturePieMiniFor(metricKey, metricLabel, svgId, legendId, emptyId, groupField) {
     var svg = document.getElementById(svgId);
     var legend = document.getElementById(legendId);
     var emptyEl = document.getElementById(emptyId);
@@ -1490,7 +1497,7 @@
     var groups = {};
     var order = [];
     loans.forEach(function (l) {
-      var key = l.nature || '(未分類)';
+      var key = l[groupField] || '(未分類)';
       if (!groups[key]) { groups[key] = { name: key, value: 0 }; order.push(key); }
       groups[key].value += l[metricKey];
     });
