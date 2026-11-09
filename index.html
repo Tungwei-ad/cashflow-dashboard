@@ -678,26 +678,27 @@
         <div id="rate-scatter-detail" style="font-size: 13px; margin-top: 14px; padding: 10px 12px; background: var(--surface-alt); border-radius: 6px; display: none;"></div>
       </div>
       <div style="flex: 1 1 auto; min-width: 8px;"></div>
-      <div style="flex-shrink: 0; min-width: 150px; max-width: 185px; padding-top: 0;">
-        <div style="font-size: 12px; color: var(--text-muted); font-weight: 600; margin-bottom: 8px; text-align: center;">借款性質分布（已動撥）</div>
-        <svg id="nature-pie-mini" class="chart-svg" width="135" height="135" viewBox="0 0 140 140" style="display: block; margin: 0 auto 10px;"></svg>
-        <div id="nature-pie-mini-legend" style="font-size: 12px;"></div>
-        <div class="empty" id="nature-pie-mini-empty" style="display:none; font-size: 12px; padding: 10px;">無資料</div>
-        <div id="nature-pie-mini-detail" style="font-size: 11.5px; margin-top: 10px; padding: 8px 10px; background: var(--surface-alt); border-radius: 6px; display: none;"></div>
-      </div>
-      <div style="flex-shrink: 0; min-width: 150px; max-width: 185px; padding-top: 0;">
-        <div style="font-size: 12px; color: var(--text-muted); font-weight: 600; margin-bottom: 8px; text-align: center;">借款性質分布（額度）</div>
-        <svg id="nature-pie-mini-limit" class="chart-svg" width="135" height="135" viewBox="0 0 140 140" style="display: block; margin: 0 auto 10px;"></svg>
-        <div id="nature-pie-mini-limit-legend" style="font-size: 12px;"></div>
-        <div class="empty" id="nature-pie-mini-limit-empty" style="display:none; font-size: 12px; padding: 10px;">無資料</div>
-        <div id="nature-pie-mini-limit-detail" style="font-size: 11.5px; margin-top: 10px; padding: 8px 10px; background: var(--surface-alt); border-radius: 6px; display: none;"></div>
-      </div>
-      <div style="flex-shrink: 0; min-width: 150px; max-width: 185px; padding-top: 0;">
-        <div style="font-size: 12px; color: var(--text-muted); font-weight: 600; margin-bottom: 8px; text-align: center;">資產性質分布（已動撥）</div>
-        <svg id="asset-type-pie-mini" class="chart-svg" width="135" height="135" viewBox="0 0 140 140" style="display: block; margin: 0 auto 10px;"></svg>
-        <div id="asset-type-pie-mini-legend" style="font-size: 12px;"></div>
-        <div class="empty" id="asset-type-pie-mini-empty" style="display:none; font-size: 12px; padding: 10px;">無資料</div>
-        <div id="asset-type-pie-mini-detail" style="font-size: 11.5px; margin-top: 10px; padding: 8px 10px; background: var(--surface-alt); border-radius: 6px; display: none;"></div>
+      <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 8px; align-items: flex-end;">
+        <div class="toolbar" style="gap: 6px;">
+          <button type="button" class="mini-pie-group-btn" data-mini-group="nature" id="btn-mini-group-nature">依借款性質</button>
+          <button type="button" class="mini-pie-group-btn secondary" data-mini-group="asset_type" id="btn-mini-group-asset">依資產性質</button>
+        </div>
+        <div style="display: flex; gap: 16px;">
+          <div style="flex-shrink: 0; min-width: 150px; max-width: 185px; padding-top: 0;">
+            <div id="mini-pie-a-title" style="font-size: 12px; color: var(--text-muted); font-weight: 600; margin-bottom: 8px; text-align: center;"></div>
+            <svg id="mini-pie-a" class="chart-svg" width="135" height="135" viewBox="0 0 140 140" style="display: block; margin: 0 auto 10px;"></svg>
+            <div id="mini-pie-a-legend" style="font-size: 12px;"></div>
+            <div class="empty" id="mini-pie-a-empty" style="display:none; font-size: 12px; padding: 10px;">無資料</div>
+            <div id="mini-pie-a-detail" style="font-size: 11.5px; margin-top: 10px; padding: 8px 10px; background: var(--surface-alt); border-radius: 6px; display: none;"></div>
+          </div>
+          <div style="flex-shrink: 0; min-width: 150px; max-width: 185px; padding-top: 0;">
+            <div id="mini-pie-b-title" style="font-size: 12px; color: var(--text-muted); font-weight: 600; margin-bottom: 8px; text-align: center;"></div>
+            <svg id="mini-pie-b" class="chart-svg" width="135" height="135" viewBox="0 0 140 140" style="display: block; margin: 0 auto 10px;"></svg>
+            <div id="mini-pie-b-legend" style="font-size: 12px;"></div>
+            <div class="empty" id="mini-pie-b-empty" style="display:none; font-size: 12px; padding: 10px;">無資料</div>
+            <div id="mini-pie-b-detail" style="font-size: 11.5px; margin-top: 10px; padding: 8px 10px; background: var(--surface-alt); border-radius: 6px; display: none;"></div>
+          </div>
+        </div>
       </div>
     </div>
     <div class="empty" id="rate-scatter-empty" style="display:none;">目前沒有借款資料。</div>
@@ -1481,30 +1482,49 @@
     renderNaturePieMini();
   }
 
-  // --- 借款性質分布小圓餅圖（與利率 vs. 已動撥分布圖共用銀行篩選） ---
+  // --- 借款性質 / 資產性質分布小圓餅圖（與利率 vs. 已動撥分布圖共用銀行篩選） ---
   var miniPieSelected = {};
-  var miniPieConfigs = [
-    { metricKey: 'drawn', metricLabel: '已動撥', svgId: 'nature-pie-mini', legendId: 'nature-pie-mini-legend', emptyId: 'nature-pie-mini-empty', detailId: 'nature-pie-mini-detail', groupField: 'nature', totalLabel: null },
-    { metricKey: 'limit', metricLabel: '額度', svgId: 'nature-pie-mini-limit', legendId: 'nature-pie-mini-limit-legend', emptyId: 'nature-pie-mini-limit-empty', detailId: 'nature-pie-mini-limit-detail', groupField: 'nature', totalLabel: '總額度' },
-    { metricKey: 'drawn', metricLabel: '已動撥', svgId: 'asset-type-pie-mini', legendId: 'asset-type-pie-mini-legend', emptyId: 'asset-type-pie-mini-empty', detailId: 'asset-type-pie-mini-detail', groupField: 'asset_type', totalLabel: '已動撥總數' }
-  ];
+  var miniPieGroupMode = 'nature';
+
+  function getMiniPieConfigs() {
+    var field = miniPieGroupMode;
+    var fieldLabel = field === 'nature' ? '借款性質' : '資產性質';
+    return [
+      { metricKey: 'drawn', metricLabel: '已動撥', svgId: 'mini-pie-a', legendId: 'mini-pie-a-legend', emptyId: 'mini-pie-a-empty', detailId: 'mini-pie-a-detail', titleId: 'mini-pie-a-title', groupField: field, totalLabel: '已動撥總數', title: fieldLabel + '分布（已動撥）' },
+      { metricKey: 'limit', metricLabel: '額度', svgId: 'mini-pie-b', legendId: 'mini-pie-b-legend', emptyId: 'mini-pie-b-empty', detailId: 'mini-pie-b-detail', titleId: 'mini-pie-b-title', groupField: field, totalLabel: '總額度', title: fieldLabel + '分布（額度）' }
+    ];
+  }
 
   function renderNaturePieMini() {
-    miniPieConfigs.forEach(function (c) {
+    getMiniPieConfigs().forEach(function (c) {
+      var titleEl = document.getElementById(c.titleId);
+      if (titleEl) titleEl.textContent = c.title;
       renderNaturePieMiniFor(c.metricKey, c.metricLabel, c.svgId, c.legendId, c.emptyId, c.detailId, c.groupField, c.totalLabel);
     });
   }
 
-  miniPieConfigs.forEach(function (c) {
+  function setMiniPieGroupMode(mode) {
+    if (miniPieGroupMode === mode) return;
+    miniPieGroupMode = mode;
+    miniPieSelected = {};
+    document.getElementById('btn-mini-group-nature').className = 'mini-pie-group-btn' + (mode === 'nature' ? '' : ' secondary');
+    document.getElementById('btn-mini-group-asset').className = 'mini-pie-group-btn' + (mode === 'asset_type' ? '' : ' secondary');
+    renderNaturePieMini();
+  }
+
+  document.getElementById('btn-mini-group-nature').addEventListener('click', function () { setMiniPieGroupMode('nature'); });
+  document.getElementById('btn-mini-group-asset').addEventListener('click', function () { setMiniPieGroupMode('asset_type'); });
+
+  ['mini-pie-a', 'mini-pie-b'].forEach(function (svgId) {
     function handleMiniPieClick(e) {
       var el = e.target.closest('[data-key]');
       if (!el) return;
       var key = el.getAttribute('data-key');
-      miniPieSelected[c.svgId] = (miniPieSelected[c.svgId] === key) ? null : key;
+      miniPieSelected[svgId] = (miniPieSelected[svgId] === key) ? null : key;
       renderNaturePieMini();
     }
-    var svgEl = document.getElementById(c.svgId);
-    var legendEl = document.getElementById(c.legendId);
+    var svgEl = document.getElementById(svgId);
+    var legendEl = document.getElementById(svgId + '-legend');
     if (svgEl) svgEl.addEventListener('click', handleMiniPieClick);
     if (legendEl) legendEl.addEventListener('click', handleMiniPieClick);
   });
