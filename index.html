@@ -671,29 +671,32 @@
       <h2 style="margin-bottom: 0; border-bottom: none; padding-bottom: 0;">利率 vs. 已動撥分布圖</h2>
       <div class="toolbar" id="scatter-bank-filter" style="flex-wrap: wrap;"></div>
     </div>
-    <div style="display: flex; gap: 28px; align-items: flex-start; justify-content: center; flex-wrap: wrap; margin-top: 10px;">
-      <svg id="rate-scatter-chart" class="chart-svg" width="630" height="320" viewBox="0 0 630 320" style="flex-shrink: 0; min-width: 280px;"></svg>
-      <div style="min-width: 200px; max-width: 260px; padding-top: 20px;">
+    <div style="display: flex; gap: 16px; align-items: flex-start; justify-content: flex-start; flex-wrap: nowrap; overflow-x: auto; padding-bottom: 6px; margin-top: 10px;">
+      <svg id="rate-scatter-chart" class="chart-svg" width="460" height="234" viewBox="0 0 630 320" style="flex-shrink: 0; min-width: 240px;"></svg>
+      <div style="flex-shrink: 0; min-width: 150px; max-width: 180px; padding-top: 10px;">
         <div id="rate-scatter-legend" style="font-size: 13px;"></div>
         <div id="rate-scatter-detail" style="font-size: 13px; margin-top: 14px; padding: 10px 12px; background: var(--surface-alt); border-radius: 6px; display: none;"></div>
       </div>
-      <div style="min-width: 160px; max-width: 220px; padding-top: 0;">
+      <div style="flex-shrink: 0; min-width: 120px; max-width: 140px; padding-top: 0;">
         <div style="font-size: 12px; color: var(--text-muted); font-weight: 600; margin-bottom: 8px; text-align: center;">借款性質分布（已動撥）</div>
-        <svg id="nature-pie-mini" class="chart-svg" width="140" height="140" viewBox="0 0 140 140" style="display: block; margin: 0 auto 10px;"></svg>
+        <svg id="nature-pie-mini" class="chart-svg" width="110" height="110" viewBox="0 0 140 140" style="display: block; margin: 0 auto 10px;"></svg>
         <div id="nature-pie-mini-legend" style="font-size: 12px;"></div>
         <div class="empty" id="nature-pie-mini-empty" style="display:none; font-size: 12px; padding: 10px;">無資料</div>
+        <div id="nature-pie-mini-detail" style="font-size: 11.5px; margin-top: 10px; padding: 8px 10px; background: var(--surface-alt); border-radius: 6px; display: none;"></div>
       </div>
-      <div style="min-width: 160px; max-width: 220px; padding-top: 0;">
+      <div style="flex-shrink: 0; min-width: 120px; max-width: 140px; padding-top: 0;">
         <div style="font-size: 12px; color: var(--text-muted); font-weight: 600; margin-bottom: 8px; text-align: center;">借款性質分布（額度）</div>
-        <svg id="nature-pie-mini-limit" class="chart-svg" width="140" height="140" viewBox="0 0 140 140" style="display: block; margin: 0 auto 10px;"></svg>
+        <svg id="nature-pie-mini-limit" class="chart-svg" width="110" height="110" viewBox="0 0 140 140" style="display: block; margin: 0 auto 10px;"></svg>
         <div id="nature-pie-mini-limit-legend" style="font-size: 12px;"></div>
         <div class="empty" id="nature-pie-mini-limit-empty" style="display:none; font-size: 12px; padding: 10px;">無資料</div>
+        <div id="nature-pie-mini-limit-detail" style="font-size: 11.5px; margin-top: 10px; padding: 8px 10px; background: var(--surface-alt); border-radius: 6px; display: none;"></div>
       </div>
-      <div style="min-width: 160px; max-width: 220px; padding-top: 0;">
+      <div style="flex-shrink: 0; min-width: 120px; max-width: 140px; padding-top: 0;">
         <div style="font-size: 12px; color: var(--text-muted); font-weight: 600; margin-bottom: 8px; text-align: center;">資產性質分布（已動撥）</div>
-        <svg id="asset-type-pie-mini" class="chart-svg" width="140" height="140" viewBox="0 0 140 140" style="display: block; margin: 0 auto 10px;"></svg>
+        <svg id="asset-type-pie-mini" class="chart-svg" width="110" height="110" viewBox="0 0 140 140" style="display: block; margin: 0 auto 10px;"></svg>
         <div id="asset-type-pie-mini-legend" style="font-size: 12px;"></div>
         <div class="empty" id="asset-type-pie-mini-empty" style="display:none; font-size: 12px; padding: 10px;">無資料</div>
+        <div id="asset-type-pie-mini-detail" style="font-size: 11.5px; margin-top: 10px; padding: 8px 10px; background: var(--surface-alt); border-radius: 6px; display: none;"></div>
       </div>
     </div>
     <div class="empty" id="rate-scatter-empty" style="display:none;">目前沒有借款資料。</div>
@@ -1478,16 +1481,38 @@
   }
 
   // --- 借款性質分布小圓餅圖（與利率 vs. 已動撥分布圖共用銀行篩選） ---
+  var miniPieSelected = {};
+  var miniPieConfigs = [
+    { metricKey: 'drawn', metricLabel: '已動撥', svgId: 'nature-pie-mini', legendId: 'nature-pie-mini-legend', emptyId: 'nature-pie-mini-empty', detailId: 'nature-pie-mini-detail', groupField: 'nature' },
+    { metricKey: 'limit', metricLabel: '額度', svgId: 'nature-pie-mini-limit', legendId: 'nature-pie-mini-limit-legend', emptyId: 'nature-pie-mini-limit-empty', detailId: 'nature-pie-mini-limit-detail', groupField: 'nature' },
+    { metricKey: 'drawn', metricLabel: '已動撥', svgId: 'asset-type-pie-mini', legendId: 'asset-type-pie-mini-legend', emptyId: 'asset-type-pie-mini-empty', detailId: 'asset-type-pie-mini-detail', groupField: 'asset_type' }
+  ];
+
   function renderNaturePieMini() {
-    renderNaturePieMiniFor('drawn', '已動撥', 'nature-pie-mini', 'nature-pie-mini-legend', 'nature-pie-mini-empty', 'nature');
-    renderNaturePieMiniFor('limit', '額度', 'nature-pie-mini-limit', 'nature-pie-mini-limit-legend', 'nature-pie-mini-limit-empty', 'nature');
-    renderNaturePieMiniFor('drawn', '已動撥', 'asset-type-pie-mini', 'asset-type-pie-mini-legend', 'asset-type-pie-mini-empty', 'asset_type');
+    miniPieConfigs.forEach(function (c) {
+      renderNaturePieMiniFor(c.metricKey, c.metricLabel, c.svgId, c.legendId, c.emptyId, c.detailId, c.groupField);
+    });
   }
 
-  function renderNaturePieMiniFor(metricKey, metricLabel, svgId, legendId, emptyId, groupField) {
+  miniPieConfigs.forEach(function (c) {
+    function handleMiniPieClick(e) {
+      var el = e.target.closest('[data-key]');
+      if (!el) return;
+      var key = el.getAttribute('data-key');
+      miniPieSelected[c.svgId] = (miniPieSelected[c.svgId] === key) ? null : key;
+      renderNaturePieMini();
+    }
+    var svgEl = document.getElementById(c.svgId);
+    var legendEl = document.getElementById(c.legendId);
+    if (svgEl) svgEl.addEventListener('click', handleMiniPieClick);
+    if (legendEl) legendEl.addEventListener('click', handleMiniPieClick);
+  });
+
+  function renderNaturePieMiniFor(metricKey, metricLabel, svgId, legendId, emptyId, detailId, groupField) {
     var svg = document.getElementById(svgId);
     var legend = document.getElementById(legendId);
     var emptyEl = document.getElementById(emptyId);
+    var detailEl = document.getElementById(detailId);
     if (!svg) return;
 
     var loans = data.bank_loans.filter(function (l) {
@@ -1498,8 +1523,9 @@
     var order = [];
     loans.forEach(function (l) {
       var key = l[groupField] || '(未分類)';
-      if (!groups[key]) { groups[key] = { name: key, value: 0 }; order.push(key); }
+      if (!groups[key]) { groups[key] = { name: key, value: 0, loans: [] }; order.push(key); }
       groups[key].value += l[metricKey];
+      groups[key].loans.push(l);
     });
     var total = order.reduce(function (s, k) { return s + groups[k].value; }, 0);
     var hasData = order.length > 0 && total > 0;
@@ -1507,7 +1533,14 @@
     svg.style.display = hasData ? '' : 'none';
     legend.style.display = hasData ? '' : 'none';
     emptyEl.style.display = hasData ? 'none' : '';
-    if (!hasData) { svg.innerHTML = ''; legend.innerHTML = ''; return; }
+    if (!hasData) {
+      svg.innerHTML = ''; legend.innerHTML = '';
+      if (detailEl) { detailEl.style.display = 'none'; detailEl.innerHTML = ''; }
+      return;
+    }
+
+    if (miniPieSelected[svgId] && !groups[miniPieSelected[svgId]]) miniPieSelected[svgId] = null;
+    var selectedKey = miniPieSelected[svgId];
 
     var cx = 70, cy = 70, r = 62;
     var angle = 0;
@@ -1524,11 +1557,12 @@
       var path = wedgePath(cx, cy, r, start, end);
       var pctText = (g.value / total * 100).toFixed(1);
       var title = esc(key) + '\n' + metricLabel + ' ' + fmt(g.value) + '（' + pctText + '%）';
+      var isSel = selectedKey === key;
       if (path) {
-        svgParts.push('<g><title>' + title + '</title><path d="' + path + '" fill="' + color + '" stroke="var(--surface)" stroke-width="1.5"></path></g>');
+        svgParts.push('<g class="pie-wedge" data-key="' + esc(key) + '" style="cursor:pointer;"><title>' + title + '</title><path d="' + path + '" fill="' + color + '" stroke="' + (isSel ? 'var(--text-primary)' : 'var(--surface)') + '" stroke-width="' + (isSel ? 2.5 : 1.5) + '"></path></g>');
       }
       legendParts.push(
-        '<div style="display:flex; align-items:center; gap:6px; padding:2px 0;">' +
+        '<div data-key="' + esc(key) + '" style="display:flex; align-items:center; gap:6px; padding:2px 0; cursor:pointer;' + (isSel ? ' font-weight:700;' : '') + '">' +
           '<span style="display:inline-block; width:10px; height:10px; border-radius:2px; background:' + color + '; flex-shrink:0;"></span>' +
           '<span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis;">' + esc(key) + '</span>' +
           '<span style="color:var(--text-muted); white-space:nowrap;">' + pctText + '%</span>' +
@@ -1538,6 +1572,26 @@
 
     svg.innerHTML = svgParts.join('');
     legend.innerHTML = legendParts.join('');
+
+    if (detailEl) {
+      if (selectedKey && groups[selectedKey]) {
+        var sg = groups[selectedKey];
+        var selPct = (sg.value / total * 100).toFixed(1);
+        var rows = sg.loans.slice().sort(function (a, b) { return b[metricKey] - a[metricKey]; }).map(function (l) {
+          return '<div style="display:flex; justify-content:space-between; gap:8px; padding:2px 0;">' +
+            '<span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + esc(l.bank || '-') + ' · ' + esc(l.credit_name || '-') + '</span>' +
+            '<span style="color:var(--text-muted); white-space:nowrap;">' + fmt(l[metricKey]) + '</span>' +
+          '</div>';
+        }).join('');
+        detailEl.style.display = '';
+        detailEl.innerHTML =
+          '<div style="font-weight:700; margin-bottom:6px;">' + esc(selectedKey) + '　' + fmt(sg.value) + '（' + selPct + '%）</div>' +
+          rows;
+      } else {
+        detailEl.style.display = 'none';
+        detailEl.innerHTML = '';
+      }
+    }
   }
 
   var pieGroupBy = 'credit_name';
