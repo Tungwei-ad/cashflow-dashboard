@@ -512,6 +512,70 @@
   #loan-pie-legend tr { transition: font-weight 0.1s ease; color: var(--text-primary); }
   #loan-pie-legend td:nth-child(3), #loan-pie-legend td:nth-child(4) { font-family: var(--mono); font-size: 12px; }
   #loan-pie-legend tr.legend-row-hover td { font-weight: bold; }
+  /* ---------- Professional loan analytics ---------- */
+  .loan-analytics-card, .loan-allocation-card { overflow: hidden; }
+  .loan-section-head {
+    display: flex; justify-content: space-between; align-items: flex-start; gap: 18px; flex-wrap: wrap;
+    padding-bottom: 15px; margin-bottom: 18px; border-bottom: 1px solid var(--border-light);
+  }
+  .loan-heading-block { display: flex; align-items: flex-start; gap: 12px; min-width: 240px; }
+  .loan-heading-icon {
+    width: 36px; height: 36px; display: grid; place-items: center; flex: 0 0 auto;
+    color: var(--accent); background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+    border-radius: 8px;
+  }
+  .loan-heading-icon svg { width: 18px; height: 18px; }
+  .loan-eyebrow { color: var(--text-muted); font: 700 9.5px/1.2 var(--mono); letter-spacing: .13em; text-transform: uppercase; margin-bottom: 5px; }
+  .loan-section-head h2 { margin: 0; padding: 0; border: 0; font-size: 16px; }
+  .loan-section-head h2::before { display: none; }
+  .loan-section-sub { margin: 4px 0 0; color: var(--text-muted); font-size: 12px; }
+  .loan-filter-wrap { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; justify-content: flex-end; }
+  .loan-filter-label { color: var(--text-muted); font-size: 11px; font-weight: 700; letter-spacing: .04em; }
+  #scatter-bank-filter button { margin: 0; padding: 6px 10px; font-size: 11.5px; }
+  .loan-analysis-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; align-items: stretch; }
+  .loan-panel {
+    min-width: 0; height: 100%; padding: 16px; border: 1px solid var(--border-light); border-radius: 8px;
+    background: var(--surface-alt); display: flex; flex-direction: column;
+  }
+  .loan-panel-title { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin-bottom: 12px; }
+  .loan-panel-title strong { color: var(--text-heading); font-size: 12.5px; }
+  .loan-panel-title span { color: var(--text-muted); font-size: 11px; }
+  .scatter-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; align-items: start; flex: 1; }
+  .scatter-canvas { min-width: 0; overflow-x: auto; }
+  #rate-scatter-chart { width: 100%; height: auto; min-width: 460px !important; display: block; }
+  .scatter-aside {
+    min-height: 48px; padding: 10px 12px; background: var(--surface); border: 1px solid var(--border-light); border-radius: 7px;
+    display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; align-items: start;
+  }
+  #rate-scatter-legend { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 18px; }
+  #rate-scatter-legend > div { padding: 2px 0 !important; white-space: nowrap; }
+  #rate-scatter-detail, #mini-pie-a-detail, #mini-pie-b-detail { border: 1px solid var(--border-light); background: var(--surface) !important; }
+  .loan-distribution-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .loan-distribution-head strong { font-size: 12.5px; }
+  .loan-distribution-head .toolbar { gap: 4px; }
+  .loan-distribution-head button { margin: 0; padding: 5px 8px; font-size: 11px; }
+  .mini-pie-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; flex: 1; }
+  .mini-pie-panel {
+    min-width: 0; height: 100%; padding: 14px 12px; background: var(--surface); border: 1px solid var(--border-light); border-radius: 7px;
+    display: flex; flex-direction: column; align-items: stretch;
+  }
+  .mini-pie-title { min-height: 32px; color: var(--text-secondary); font-size: 11.5px; font-weight: 700; text-align: center; }
+  .mini-pie-panel svg { width: 164px; height: 164px; max-width: 100%; margin-top: 2px !important; }
+  .mini-pie-panel [id$="-legend"] { margin-top: auto; }
+  .loan-allocation-body { display: grid; grid-template-columns: 270px minmax(0, 1fr); gap: 24px; align-items: center; }
+  .loan-donut-wrap { padding: 14px; border: 1px solid var(--border-light); border-radius: 8px; background: var(--surface-alt); text-align: center; }
+  #loan-pie-legend-table { margin-top: 0; }
+  #loan-pie-legend-table td { padding-top: 9px; padding-bottom: 9px; }
+  @media (max-width: 1050px) {
+    .loan-analysis-grid { grid-template-columns: 1fr; }
+    .loan-panel { height: auto; }
+  }
+  @media (max-width: 720px) {
+    .loan-allocation-body { grid-template-columns: 1fr; }
+    .loan-filter-wrap { justify-content: flex-start; }
+    .mini-pie-grid { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 480px) { .mini-pie-grid { grid-template-columns: 1fr; } }
   .bar-segment { transition: transform 0.15s ease, filter 0.15s ease; cursor: pointer; }
   .bar-segment:hover { transform: translateY(-4px); filter: brightness(1.12) drop-shadow(0 3px 6px rgba(0,0,0,0.3)); }
   .scatter-point { cursor: pointer; transform-box: fill-box; transform-origin: center; transition: transform 0.12s ease, filter 0.12s ease; }
@@ -666,50 +730,36 @@
   </div>
 
   <div class="section-label" data-index="03">借款結構分析</div>
-  <div class="card section-anchor" id="loan-intelligence">
-    <div class="toolbar" style="justify-content: space-between; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--border-light); flex-wrap: wrap; gap: 10px;">
-      <h2 style="margin-bottom: 0; border-bottom: none; padding-bottom: 0;">利率 vs. 已動撥分布圖</h2>
-      <div class="toolbar" id="scatter-bank-filter" style="flex-wrap: wrap;"></div>
+  <div class="card section-anchor loan-analytics-card" id="loan-intelligence">
+    <div class="loan-section-head">
+      <div class="loan-heading-block">
+        <span class="loan-heading-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V9m6 10V5m6 14v-7m4 7H2"/></svg></span>
+        <div><div class="loan-eyebrow">Credit Portfolio Analytics</div><h2>授信組合風險分析</h2><p class="loan-section-sub">檢視已動撥部位、利率分布與借款結構集中度</p></div>
+      </div>
+      <div class="loan-filter-wrap"><span class="loan-filter-label">銀行篩選</span><div class="toolbar" id="scatter-bank-filter"></div></div>
     </div>
-    <div style="display: flex; gap: 16px; align-items: flex-start; justify-content: flex-start; flex-wrap: nowrap; overflow-x: auto; padding-bottom: 6px; margin-top: 10px;">
-      <svg id="rate-scatter-chart" class="chart-svg" width="460" height="234" viewBox="0 0 630 320" style="flex-shrink: 0; min-width: 240px;"></svg>
-      <div style="flex-shrink: 0; min-width: 150px; max-width: 180px; padding-top: 10px;">
-        <div id="rate-scatter-legend" style="font-size: 13px;"></div>
-        <div id="rate-scatter-detail" style="font-size: 13px; margin-top: 14px; padding: 10px 12px; background: var(--surface-alt); border-radius: 6px; display: none;"></div>
-      </div>
-      <div style="flex: 1 1 auto; min-width: 8px;"></div>
-      <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 8px; align-items: flex-end;">
-        <div class="toolbar" style="gap: 6px;">
-          <button type="button" class="mini-pie-group-btn" data-mini-group="nature" id="btn-mini-group-nature">依借款性質</button>
-          <button type="button" class="mini-pie-group-btn secondary" data-mini-group="asset_type" id="btn-mini-group-asset">依資產性質</button>
+    <div class="loan-analysis-grid">
+      <section class="loan-panel" aria-label="利率與已動撥分析">
+        <div class="loan-panel-title"><strong>利率 × 已動撥金額</strong><span>點選資料點查看借款明細</span></div>
+        <div class="scatter-layout">
+          <div class="scatter-canvas"><svg id="rate-scatter-chart" class="chart-svg" width="630" height="320" viewBox="0 0 630 320"></svg></div>
+          <aside class="scatter-aside"><div id="rate-scatter-legend" style="font-size: 12px;"></div><div id="rate-scatter-detail" style="font-size: 12px; margin-top: 12px; padding: 10px; border-radius: 6px; display: none;"></div></aside>
         </div>
-        <div style="display: flex; gap: 16px;">
-          <div style="flex-shrink: 0; min-width: 150px; max-width: 185px; padding-top: 0;">
-            <div id="mini-pie-a-title" style="font-size: 12px; color: var(--text-muted); font-weight: 600; margin-bottom: 8px; text-align: center;"></div>
-            <svg id="mini-pie-a" class="chart-svg" width="135" height="135" viewBox="0 0 140 140" style="display: block; margin: 0 auto 10px;"></svg>
-            <div id="mini-pie-a-legend" style="font-size: 12px;"></div>
-            <div class="empty" id="mini-pie-a-empty" style="display:none; font-size: 12px; padding: 10px;">無資料</div>
-            <div id="mini-pie-a-detail" style="font-size: 11.5px; margin-top: 10px; padding: 8px 10px; background: var(--surface-alt); border-radius: 6px; display: none;"></div>
-          </div>
-          <div style="flex-shrink: 0; min-width: 150px; max-width: 185px; padding-top: 0;">
-            <div id="mini-pie-b-title" style="font-size: 12px; color: var(--text-muted); font-weight: 600; margin-bottom: 8px; text-align: center;"></div>
-            <svg id="mini-pie-b" class="chart-svg" width="135" height="135" viewBox="0 0 140 140" style="display: block; margin: 0 auto 10px;"></svg>
-            <div id="mini-pie-b-legend" style="font-size: 12px;"></div>
-            <div class="empty" id="mini-pie-b-empty" style="display:none; font-size: 12px; padding: 10px;">無資料</div>
-            <div id="mini-pie-b-detail" style="font-size: 11.5px; margin-top: 10px; padding: 8px 10px; background: var(--surface-alt); border-radius: 6px; display: none;"></div>
-          </div>
+      </section>
+      <section class="loan-panel" aria-label="借款結構分布">
+        <div class="loan-distribution-head"><strong>結構分布</strong><div class="toolbar"><button type="button" class="mini-pie-group-btn" data-mini-group="nature" id="btn-mini-group-nature">借款性質</button><button type="button" class="mini-pie-group-btn secondary" data-mini-group="asset_type" id="btn-mini-group-asset">資產性質</button></div></div>
+        <div class="mini-pie-grid">
+          <div class="mini-pie-panel"><div id="mini-pie-a-title" class="mini-pie-title"></div><svg id="mini-pie-a" class="chart-svg" width="140" height="140" viewBox="0 0 140 140" style="display:block;margin:0 auto 10px;"></svg><div id="mini-pie-a-legend" style="font-size:11.5px;"></div><div class="empty" id="mini-pie-a-empty" style="display:none;font-size:12px;padding:10px;">無資料</div><div id="mini-pie-a-detail" style="font-size:11.5px;margin-top:10px;padding:8px 10px;border-radius:6px;display:none;"></div></div>
+          <div class="mini-pie-panel"><div id="mini-pie-b-title" class="mini-pie-title"></div><svg id="mini-pie-b" class="chart-svg" width="140" height="140" viewBox="0 0 140 140" style="display:block;margin:0 auto 10px;"></svg><div id="mini-pie-b-legend" style="font-size:11.5px;"></div><div class="empty" id="mini-pie-b-empty" style="display:none;font-size:12px;padding:10px;">無資料</div><div id="mini-pie-b-detail" style="font-size:11.5px;margin-top:10px;padding:8px 10px;border-radius:6px;display:none;"></div></div>
         </div>
-      </div>
+      </section>
     </div>
     <div class="empty" id="rate-scatter-empty" style="display:none;">目前沒有借款資料。</div>
   </div>
 
-  <div class="card">
-    <div class="toolbar" style="justify-content: space-between; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--border-light); flex-wrap: wrap; gap: 10px;">
-      <h2 style="margin-bottom: 0; border-bottom: none; padding-bottom: 0;">
-        <span id="loan-pie-title">各專案額度動撥比例</span>
-        <span id="loan-pie-summary" style="font-weight: normal; font-size: 13px; color: var(--text-muted);"></span>
-      </h2>
+  <div class="card loan-allocation-card">
+    <div class="loan-section-head">
+      <div class="loan-heading-block"><span class="loan-heading-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3v9l6.5 6.5"/></svg></span><div><div class="loan-eyebrow">Facility Allocation</div><h2><span id="loan-pie-title">各專案額度動撥比例</span></h2><p class="loan-section-sub" id="loan-pie-summary"></p></div></div>
       <div class="toolbar">
         <button type="button" class="pie-group-btn" data-group="credit_name" id="btn-group-project">依專案</button>
         <button type="button" class="pie-group-btn secondary" data-group="bank" id="btn-group-bank">依銀行別</button>
@@ -729,8 +779,8 @@
       <div id="nature-filter-list" style="display:flex; flex-wrap:wrap; gap:6px 18px;"></div>
     </div>
 
-    <div style="display: flex; gap: 28px; align-items: center; flex-wrap: wrap;">
-      <svg id="loan-pie" class="chart-svg" width="240" height="240" viewBox="0 0 240 240" style="flex-shrink: 0;"></svg>
+    <div class="loan-allocation-body">
+      <div class="loan-donut-wrap"><svg id="loan-pie" class="chart-svg" width="240" height="240" viewBox="0 0 240 240"></svg></div>
       <table id="loan-pie-legend-table" style="flex: 1; min-width: 260px; font-size: 13px; border-collapse: collapse;">
         <tbody id="loan-pie-legend"></tbody>
       </table>
