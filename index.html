@@ -276,12 +276,12 @@
 
   /* ---------- Charts ---------- */
   svg text { font-family: var(--mono), "Microsoft JhengHei", sans-serif; }
-  @keyframes barGrow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
-  #cash-history-chart .bar-segment {
-    transform-box: fill-box; transform-origin: bottom;
-    animation: barGrow 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+  @keyframes pointPop { from { opacity: 0; transform: scale(0.3); } to { opacity: 1; transform: scale(1); } }
+  #cash-history-chart .line-point {
+    transform-box: fill-box; transform-origin: center;
+    animation: pointPop 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
   }
-  :root[data-theme="dark"] .bar-segment { filter: drop-shadow(0 0 5px rgba(56,214,255,0.25)); }
+  :root[data-theme="dark"] .line-point { filter: drop-shadow(0 0 5px rgba(56,214,255,0.25)); }
   :root[data-theme="dark"] .scatter-point circle:last-child { filter: drop-shadow(0 0 4px rgba(56,214,255,0.45)); }
   .chart-svg { max-width: 100%; height: auto; }
   .table-scroll { overflow-x: auto; }
@@ -576,8 +576,8 @@
     .mini-pie-grid { grid-template-columns: 1fr 1fr; }
   }
   @media (max-width: 480px) { .mini-pie-grid { grid-template-columns: 1fr; } }
-  .bar-segment { transition: transform 0.15s ease, filter 0.15s ease; cursor: pointer; }
-  .bar-segment:hover { transform: translateY(-4px); filter: brightness(1.12) drop-shadow(0 3px 6px rgba(0,0,0,0.3)); }
+  .line-point { transition: transform 0.15s ease, filter 0.15s ease; cursor: pointer; transform-box: fill-box; transform-origin: center; }
+  .line-point:hover { transform: scale(1.4); filter: brightness(1.12) drop-shadow(0 3px 6px rgba(0,0,0,0.3)); }
   .scatter-point { cursor: pointer; transform-box: fill-box; transform-origin: center; transition: transform 0.12s ease, filter 0.12s ease; }
   .scatter-point:hover { transform: scale(1.5); filter: drop-shadow(0 2px 4px rgba(0,0,0,0.35)); }
   .theme-toggle-btn {
@@ -1200,14 +1200,6 @@
     return step * mag;
   }
 
-  function roundedTopRectPath(x, y, w, h, r) {
-    if (h <= 0) return '';
-    r = Math.min(r, w / 2, h);
-    return ['M', x, y + h, 'L', x, y + r, 'Q', x, y, x + r, y,
-      'L', x + w - r, y, 'Q', x + w, y, x + w, y + r,
-      'L', x + w, y + h, 'Z'].join(' ');
-  }
-
   function getDisplayedCashHistory() {
     var today = todayISO();
     var rangeEnd = cashHistoryRangeEnd || today;
@@ -1252,10 +1244,10 @@
     }
 
     legend.innerHTML =
-      '<div style="display:flex; align-items:center; gap:6px;"><span style="display:inline-block; width:11px; height:11px; border-radius:2px; background:' + COLOR_DEPOSIT + ';"></span>可動用銀行存款</div>' +
-      '<div style="display:flex; align-items:center; gap:6px;"><span style="display:inline-block; width:11px; height:11px; border-radius:2px; background:' + COLOR_CREDIT + ';"></span>銀行可動撥餘額(土融及不動產融資)</div>' +
-      '<div style="display:flex; align-items:center; gap:6px;"><span style="display:inline-block; width:11px; border-top:2px dashed var(--text-muted);"></span>穩健水位</div>' +
-      '<div style="display:flex; align-items:center; gap:6px;"><span style="display:inline-block; width:11px; border-top:2.5px solid ' + COLOR_TREND + ';"></span>趨勢線（可動用現金）</div>';
+      '<div style="display:flex; align-items:center; gap:6px;"><span style="display:inline-block; width:14px; border-top:2.5px solid ' + COLOR_DEPOSIT + ';"></span>可動用銀行存款</div>' +
+      '<div style="display:flex; align-items:center; gap:6px;"><span style="display:inline-block; width:14px; border-top:2.5px solid ' + COLOR_CREDIT + ';"></span>銀行可動撥餘額(土融及不動產融資)</div>' +
+      '<div style="display:flex; align-items:center; gap:6px;"><span style="display:inline-block; width:14px; border-top:2px dashed var(--text-muted);"></span>穩健水位</div>' +
+      '<div style="display:flex; align-items:center; gap:6px;"><span style="display:inline-block; width:14px; border-top:2.5px dashed ' + COLOR_TREND + ';"></span>趨勢線（可動用現金）</div>';
 
     // 柱狀寬度／間距會依容器寬度自動放大，平均撐滿整個寬度，資料筆數少時才不會整組柱子擠在左邊、右側留一大片空白；
     // 資料筆數多到連最小間距都放不下時，就維持最小間距，改用 .table-scroll 的左右捲動。
@@ -1298,48 +1290,51 @@
     }
     parts.push('<line x1="' + plotLeft + '" y1="' + plotBottom + '" x2="' + plotRight + '" y2="' + plotBottom + '" stroke="var(--chart-axis)" stroke-width="1"></line>');
 
+    // 每一天有分項資料時，分別記錄「可動用銀行存款」「銀行可動撥餘額」兩條折線的座標；
+    // 舊資料沒有分項時，併入「可動用現金（合計）」這條折線（舊資料相容）
+    var depositLinePoints = [];
+    var creditLinePoints = [];
+    var totalLinePoints = [];
+
     history.forEach(function (h, i) {
       var cx = plotLeft + slot * i + slot / 2;
-      var barX = cx - barW / 2;
-      var isLast = i === n - 1;
       var levelForTitle = h.stable_cash_level == null ? currentStableLevel : h.stable_cash_level;
-      var delay = Math.min(i * 40, 500);
 
-      // 兩個分項疊加成一根柱子：有分項資料時畫銀行存款＋可動撥餘額兩段，否則用合計畫單一段（舊資料相容）
       var hasSplit = h.usable_bank_deposit != null && h.available_credit != null;
       var seg1 = hasSplit ? Math.max(0, h.usable_bank_deposit) : 0;
       var seg2 = hasSplit ? Math.max(0, h.available_credit) : 0;
       var total = hasSplit ? seg1 + seg2 : Math.max(0, h.available_cash);
 
       if (hasSplit) {
-        var y1top = yScale(seg1);
-        var y2top = yScale(total);
-        if (seg1 > 0) {
-          parts.push('<g class="bar-segment" style="animation-delay:' + delay + 'ms;">' +
-            '<title>' + esc(h.date) + ' 可動用銀行存款：' + fmt(seg1) + '（穩健水位 ' + fmt(levelForTitle) + '）</title>' +
-            '<rect x="' + barX + '" y="' + y1top + '" width="' + barW + '" height="' + (plotBottom - y1top) + '" fill="' + COLOR_DEPOSIT + '"></rect>' +
-          '</g>');
-        }
-        if (seg2 > 0) {
-          var segBottom = y1top - (seg1 > 0 ? 1.5 : 0);
-          var segH = Math.max(0, segBottom - y2top);
-          parts.push('<g class="bar-segment" style="animation-delay:' + (delay + 90) + 'ms;">' +
-            '<title>' + esc(h.date) + ' 銀行可動撥餘額：' + fmt(seg2) + '（穩健水位 ' + fmt(levelForTitle) + '）</title>' +
-            '<path d="' + roundedTopRectPath(barX, y2top, barW, segH, 4) + '" fill="' + COLOR_CREDIT + '"></path>' +
-          '</g>');
-        }
-      } else if (total > 0) {
-        var top = yScale(total);
-        parts.push('<g class="bar-segment" style="animation-delay:' + delay + 'ms;">' +
-          '<title>' + esc(h.date) + ' 可動用現金（合計）：' + fmt(total) + '（穩健水位 ' + fmt(levelForTitle) + '）</title>' +
-          '<path d="' + roundedTopRectPath(barX, top, barW, plotBottom - top, 4) + '" fill="' + COLOR_TOTAL + '"></path>' +
-        '</g>');
+        depositLinePoints.push({ cx: cx, cy: yScale(seg1), v: seg1, date: h.date, level: levelForTitle });
+        creditLinePoints.push({ cx: cx, cy: yScale(seg2), v: seg2, date: h.date, level: levelForTitle });
+      } else {
+        totalLinePoints.push({ cx: cx, cy: yScale(total), v: total, date: h.date, level: levelForTitle });
       }
 
-      var labelY = yScale(total) - 8;
-      parts.push('<text x="' + cx + '" y="' + labelY + '" text-anchor="start" font-size="10" font-weight="' + (isLast ? '700' : '600') + '" fill="var(--text-primary)" transform="rotate(-90 ' + cx + ' ' + labelY + ')">' + fmt(total) + '</text>');
       parts.push('<text x="' + cx + '" y="' + (plotBottom + 18) + '" text-anchor="middle" font-size="10" fill="var(--text-secondary)">' + esc(h.date.slice(5)) + '</text>');
     });
+
+    // 折線＋資料點：每個點提供 hover 詳細資訊，只在最後一天（最新資料）標示數值，避免每個點都標數字造成雜亂
+    function drawCashLine(points, color, metricLabel) {
+      if (!points.length) return;
+      var poly = points.map(function (p) { return p.cx + ',' + p.cy; }).join(' ');
+      parts.push('<polyline points="' + poly + '" fill="none" stroke="' + color + '" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"></polyline>');
+      points.forEach(function (p, i) {
+        var delay = Math.min(i * 40, 500);
+        parts.push('<g class="line-point" style="animation-delay:' + delay + 'ms;">' +
+          '<title>' + esc(p.date) + ' ' + esc(metricLabel) + '：' + fmt(p.v) + '（穩健水位 ' + fmt(p.level) + '）</title>' +
+          '<circle cx="' + p.cx + '" cy="' + p.cy + '" r="4" fill="' + color + '" stroke="var(--surface)" stroke-width="1.5"></circle>' +
+        '</g>');
+        if (i === points.length - 1) {
+          parts.push('<text x="' + p.cx + '" y="' + (p.cy - 10) + '" text-anchor="middle" font-size="10" font-weight="700" fill="' + color + '">' + fmt(p.v) + '</text>');
+        }
+      });
+    }
+
+    drawCashLine(depositLinePoints, COLOR_DEPOSIT, '可動用銀行存款');
+    drawCashLine(creditLinePoints, COLOR_CREDIT, '銀行可動撥餘額');
+    drawCashLine(totalLinePoints, COLOR_TOTAL, '可動用現金（合計）');
 
     var stablePoints = history.map(function (h, i) {
       var cx = plotLeft + slot * i + slot / 2;
@@ -1365,7 +1360,7 @@
         var x1 = plotLeft + slot * (n - 1) + slot / 2;
         var y0 = yScale(intercept);
         var y1 = yScale(intercept + slope * (n - 1));
-        parts.push('<line x1="' + x0 + '" y1="' + y0 + '" x2="' + x1 + '" y2="' + y1 + '" stroke="' + COLOR_TREND + '" stroke-width="2.5" stroke-linecap="round"></line>');
+        parts.push('<line x1="' + x0 + '" y1="' + y0 + '" x2="' + x1 + '" y2="' + y1 + '" stroke="' + COLOR_TREND + '" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="7,5"></line>');
         // 文字放在柱狀圖右側保留的 trendMargin 空間內，不跟最後一天的數字標籤同一欄，避免重疊
         var trendLabelX = plotRight + trendMargin - 6;
         var trendLabelY = Math.min(Math.max(y1, plotTop + 10), plotBottom - 4);
