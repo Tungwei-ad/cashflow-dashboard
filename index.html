@@ -1101,6 +1101,32 @@
     render();
   }
 
+  // 銀行存款或借款異動時，將當天的「每日可動用現金趨勢」資料寫入（同一天直接覆蓋）
+  async function upsertTodaySnapshot() {
+    var stats = computeStats();
+    var todayStr = todayISO();
+    var payload = {
+      snapshot_date: todayStr,
+      available_cash: stats.available_today,
+      stable_cash_level: stats.stable_cash_level,
+      usable_bank_deposit: stats.usable_bank_deposit,
+      available_credit: stats.total_available_credit
+    };
+    var { error } = await sb.from('daily_cash_snapshots').upsert(payload, { onConflict: 'snapshot_date' });
+    if (error) { console.error('更新每日可動用現金趨勢失敗：', error); return; }
+
+    var entry = {
+      date: todayStr,
+      available_cash: stats.available_today,
+      stable_cash_level: stats.stable_cash_level,
+      usable_bank_deposit: stats.usable_bank_deposit,
+      available_credit: stats.total_available_credit
+    };
+    var idx = data.cash_history.findIndex(function (h) { return h.date === todayStr; });
+    if (idx >= 0) { data.cash_history[idx] = entry; } else { data.cash_history.push(entry); }
+    renderCashHistoryChart();
+  }
+
   function getFilteredLoans() {
     return data.bank_loans.filter(function (l) { return natureFilter.has(l.nature || '(未分類)'); });
   }
@@ -2123,6 +2149,7 @@
       .eq('id', 1);
     if (error) { alert('儲存失敗：' + error.message); setSyncStatus('儲存失敗'); return; }
     await loadAll();
+    await upsertTodaySnapshot();
   });
 
   // --- 每月固定費用（穩健現金水位設定） ---
@@ -2145,6 +2172,7 @@
       var { error } = await sb.from('bank_loans').update({ included: checked }).eq('id', id);
       if (error) { alert('更新失敗：' + error.message); }
       await loadAll();
+      await upsertTodaySnapshot();
     }
   });
 
@@ -2159,6 +2187,7 @@
       var { error } = await sb.from('bank_loans').delete().eq('id', id);
       if (error) { alert('刪除失敗：' + error.message); setSyncStatus('刪除失敗'); return; }
       await loadAll();
+      await upsertTodaySnapshot();
     }
   });
 
@@ -2197,6 +2226,7 @@
     }
     statusEl.textContent = '已全部更新（' + updates.length + ' 筆）';
     await loadAll();
+    await upsertTodaySnapshot();
   });
 
   // --- 新增銀行借款 ---
@@ -2220,6 +2250,7 @@
     if (error) { alert('新增失敗：' + error.message); setSyncStatus('新增失敗'); return; }
     form.reset();
     await loadAll();
+    await upsertTodaySnapshot();
   });
 
   // --- 刪除收支紀錄 ---
