@@ -928,6 +928,7 @@
   var scatterSelectedLoanId = null;
   var cashHistoryRangeStart = null;
   var cashHistoryRangeEnd = null;
+  var loanNoteOpen = {}; // key: loan id -> 備註是否展開（未出現過的 id 預設依是否已有備註內容決定）
 
   // --- 主題（深色/淺色） ---
   function isDarkMode() { return document.documentElement.getAttribute('data-theme') === 'dark'; }
@@ -1958,6 +1959,7 @@
     document.getElementById('loan-empty').style.display = loans.length ? 'none' : '';
 
     tbody.innerHTML = loans.map(function (loan) {
+      var isOpen = loanNoteOpen.hasOwnProperty(loan.id) ? loanNoteOpen[loan.id] : !!(loan.note && loan.note.trim());
       return '<tr class="loan-row" data-id="' + loan.id + '">' +
         '<td class="checkbox-col sticky-col sticky-1"><input type="checkbox" class="loan-included"' + (loan.included !== false ? ' checked' : '') + '></td>' +
         '<td class="sticky-col sticky-2"><input type="text" class="loan-bank" value="' + esc(loan.bank) + '"></td>' +
@@ -1974,10 +1976,11 @@
         '<td>' + fmt(loan.limit - loan.drawn) + '</td>' +
         '<td><input type="number" step="0.0001" class="loan-rate" value="' + loan.rate + '"></td>' +
         '<td style="white-space: nowrap;">' +
+          '<button type="button" class="btn-toggle-note secondary" title="展開/收合備註" aria-expanded="' + (isOpen ? 'true' : 'false') + '">' + (isOpen ? '－' : '＋') + '</button> ' +
           '<button type="button" class="btn-delete-loan danger">刪除</button>' +
         '</td>' +
       '</tr>' +
-      '<tr class="loan-note-row" data-id="' + loan.id + '">' +
+      '<tr class="loan-note-row" data-id="' + loan.id + '"' + (isOpen ? '' : ' style="display:none;"') + '>' +
         '<td colspan="11"><div class="loan-note-wrap">' +
           '<span class="loan-note-label">備註</span>' +
           '<input type="text" class="loan-note" placeholder="（無）" value="' + esc(loan.note || '') + '">' +
@@ -2175,6 +2178,17 @@
     var tr = e.target.closest('tr');
     if (!tr) return;
     var id = Number(tr.dataset.id);
+
+    if (e.target.classList.contains('btn-toggle-note')) {
+      var noteRow = document.querySelector('#loan-tbody tr.loan-note-row[data-id="' + id + '"]');
+      if (!noteRow) return;
+      var nextOpen = noteRow.style.display === 'none';
+      noteRow.style.display = nextOpen ? '' : 'none';
+      e.target.textContent = nextOpen ? '－' : '＋';
+      e.target.setAttribute('aria-expanded', nextOpen ? 'true' : 'false');
+      loanNoteOpen[id] = nextOpen;
+      return;
+    }
 
     if (e.target.classList.contains('btn-delete-loan')) {
       if (!confirm('確定要刪除這筆銀行借款嗎？')) return;
