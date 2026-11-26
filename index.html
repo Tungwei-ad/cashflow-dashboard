@@ -179,7 +179,12 @@
   .cols-2 > .card { margin-bottom: 0; min-width: 0; }
 
   /* ---------- KPI cards ---------- */
-  .stats-row { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 14px; margin-bottom: 22px; }
+  .stats-row { display: grid; grid-template-columns: 1.3fr repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 22px; }
+  /* 「今日可動用現金」是這整頁最重要的單一數字，字級拉大、顏色依是否達到穩健水位即時變色（綠＝健康／紅＝警示），
+     讓人不用讀文字、掃一眼顏色跟大小就知道現在狀況好不好；其餘 4 張卡維持同一種強調色，不跟主卡搶注意力。 */
+  #kpi-card-today .amount { font-size: clamp(26px, 2.3vw, 38px); }
+  #kpi-card-today { border-width: 1.5px; }
+  #kpi-status-badge { transition: color 0.2s ease, border-color 0.2s ease; }
   .stats-row .card { margin-bottom: 0; min-width: 0; padding: 18px 18px 16px; overflow: hidden; }
   .stats-row .card::before {
     left: 0; right: 0; top: 0; height: 3px; opacity: 1;
@@ -229,6 +234,14 @@
   .kpi-meter-label span:last-child { font-family: var(--mono); font-weight: 600; color: var(--text-primary); white-space: nowrap; }
   .stats-row .breakdown { font-size: 11px; padding: 7px 10px; }
   .amount.secondary { color: var(--kpi-cyan); font-size: 30px; }
+
+  /* 穩健水位達標／不達標的結論，用明顯的色塊橫幅呈現，而不是跟其他說明文字混在一起的小字 */
+  #cash-bar-status {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 14.5px; font-weight: 700; padding: 11px 16px;
+    border: 1px solid var(--border-light);
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+  }
 
   /* ---------- Forms ---------- */
   label { display: block; font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 5px; letter-spacing: 0.02em; }
@@ -649,9 +662,9 @@
 
   <div class="section-label" data-index="01">資金部位總覽</div>
   <div class="stats-row section-anchor" id="overview">
-    <div class="card stat-green">
+    <div class="card stat-green" id="kpi-card-today">
       <div class="kpi-glow"></div>
-      <div class="kpi-head"><span class="kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h15a3 3 0 0 1 3 3v7a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3z"/><path d="M3 7l12-4v4"/><circle cx="16.5" cy="13.5" r="1.3"/></svg></span><h2>今日可動用現金</h2><span class="kpi-tag">LIVE</span></div>
+      <div class="kpi-head"><span class="kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h15a3 3 0 0 1 3 3v7a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3z"/><path d="M3 7l12-4v4"/><circle cx="16.5" cy="13.5" r="1.3"/></svg></span><h2>今日可動用現金</h2><span class="kpi-tag" id="kpi-status-badge">LIVE</span></div>
       <div class="balance-box"><div class="amount" id="available-today">0</div><span class="unit">元</span></div>
       <div class="kpi-meter"><div class="kpi-meter-fill" id="meter-coverage"></div></div>
       <div class="kpi-meter-label"><span>穩健水位達成率</span><span id="meter-coverage-text">—</span></div>
@@ -675,7 +688,7 @@
       <div class="kpi-meter-label"><span>計入額度剩餘比例</span><span id="meter-credit-text">—</span></div>
       <div class="breakdown">僅計入下方已勾選「計入」的借款 <span id="bank-breakdown"></span></div>
     </div>
-    <div class="card stat-amber">
+    <div class="card stat-amber" id="kpi-card-util">
       <div class="kpi-glow"></div>
       <div class="kpi-head"><span class="kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/></svg></span><h2>總借款餘額</h2></div>
       <div class="balance-box"><div class="amount secondary" id="total-loan-balance">0</div><span class="unit">元</span></div>
@@ -1238,7 +1251,10 @@
     if (statusEl) {
       var todayTotal = Math.max(0, stats.usable_bank_deposit) + Math.max(0, stats.total_available_credit);
       var pass = todayTotal >= currentStableLevel;
+      var statusColor = pass ? 'var(--good)' : 'var(--critical)';
       statusEl.style.color = pass ? 'var(--success-text)' : 'var(--critical)';
+      statusEl.style.background = 'color-mix(in srgb, ' + statusColor + ' 12%, transparent)';
+      statusEl.style.borderColor = 'color-mix(in srgb, ' + statusColor + ' 40%, transparent)';
       statusEl.textContent = pass
         ? '✓ 今日可動用現金高於穩健水位（高出 ' + fmt(todayTotal - currentStableLevel) + '）'
         : '⚠ 今日可動用現金低於穩健水位（差 ' + fmt(currentStableLevel - todayTotal) + '）';
@@ -2059,10 +2075,28 @@
   function setText(id, text) { var el = document.getElementById(id); if (el) el.textContent = text; }
   function pctStr(v, d) { return isFinite(v) ? v.toFixed(d == null ? 1 : d) + '%' : '—'; }
 
+  // 卡片右上角的狀態徽章與卡片本身的強調色（--kpi）都交給這個函式統一決定，
+  // 避免「達標/不達標」散落在好幾個地方各自判斷、顏色卻對不上
+  function setCardStatus(cardId, badgeId, pass) {
+    var card = document.getElementById(cardId);
+    var badge = badgeId ? document.getElementById(badgeId) : null;
+    var color = pass === null ? null : (pass ? 'var(--good)' : 'var(--critical)');
+    if (card) {
+      if (color) { card.style.setProperty('--kpi', color); } else { card.style.removeProperty('--kpi'); }
+    }
+    if (badge) {
+      badge.textContent = pass === null ? 'LIVE' : (pass ? '✓ 達標' : '⚠ 注意');
+      badge.style.color = color || '';
+      badge.style.borderColor = color ? 'color-mix(in srgb, ' + color + ' 45%, transparent)' : '';
+    }
+  }
+
   function renderKpiMeters(stats) {
     var coverage = stats.stable_cash_level > 0 ? stats.available_today / stats.stable_cash_level * 100 : NaN;
-    setMeter('meter-coverage', coverage, isFinite(coverage) ? (coverage >= 100 ? 'var(--good)' : 'var(--critical)') : null);
+    var coveragePass = isFinite(coverage) ? coverage >= 100 : null;
+    setMeter('meter-coverage', coverage, coveragePass === null ? null : (coveragePass ? 'var(--good)' : 'var(--critical)'));
     setText('meter-coverage-text', pctStr(coverage));
+    setCardStatus('kpi-card-today', 'kpi-status-badge', coveragePass);
 
     var depShare = stats.available_today > 0 ? stats.usable_bank_deposit / stats.available_today * 100 : NaN;
     setMeter('meter-deposit', depShare);
@@ -2075,6 +2109,7 @@
     var allLimit = data.bank_loans.reduce(function (s, l) { return s + l.limit; }, 0);
     var util = allLimit > 0 ? stats.total_loan_balance / allLimit * 100 : NaN;
     setMeter('meter-util', util, util >= 85 ? 'var(--critical)' : null);
+    setCardStatus('kpi-card-util', null, isFinite(util) && util >= 85 ? false : null);
     setText('meter-util-text', pctStr(util));
 
     var wavg = stats.total_loan_balance > 0 ? stats.monthly_interest * 12 / stats.total_loan_balance * 100 : NaN;
